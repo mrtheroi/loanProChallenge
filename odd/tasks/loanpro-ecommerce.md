@@ -68,7 +68,15 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
   - RED: `GET /api/health` returned 404. GREEN: the route was added; 1 test, 2 assertions.
   - Checks: `pest` passed (the parent re-ran it as a spot check); `phpstan analyse` reported 0 errors at level 9; `pint --test` passed.
   - The user set the PostgreSQL variables in `backend/.env.example` manually, because permission rules block agents from reading or editing `.env*` files. The user also deleted the Laravel Boost `AGENTS.md` and `CLAUDE.md` from the scaffold. `.atl/` (local skill registry) was added to `.gitignore`.
-- [ ] T03 Docker Compose: db + test database, api, web (Nginx proxy); migrations and seeders on boot. Route: D. Check: `docker compose up` serves the health endpoint through localhost:8080.
+  - Evidence: commit `e74dcac`.
+  - Review: assessed `high` (`review_due=true`, 12,604 lines). The first preflight stopped with `managed_assets_outdated`; review START ran after `gentle-ai sync --agent claude-code` (gentle-ai 4.2.0). The user granted consent, but START refused with `lens_context_budget_exceeded`: the Laravel scaffold and `composer.lock` exceed the reviewer budget, and no authority was created. The user then declined review for this candidate (`declined_this_candidate`, lineage `review-92ffb2e9bb5e211e`) because it is framework scaffolding. Delivery follows ordinary repository policy.
+- [x] T03 Docker Compose: db + test database, api, web (Nginx proxy); migrations and seeders on boot. Route: D. Check: `docker compose up` serves the health endpoint through localhost:8080.
+  - Route: delegated writer (compose, Dockerfile, entrypoint, nginx, postgres init, phpunit.xml, seeder, test).
+  - RED: `DatabaseConnectionTest` failed with `-'ecommerce_test' +'ecommerce'`. GREEN: `<server>` entries in `phpunit.xml`; 2 tests, 5 assertions. PHPUnit `<env force>` does not override Docker variables, because Laravel reads `$_SERVER` first.
+  - Checks: `up --wait` brought all 3 services up healthy; `/api/health` returned `{"status":"ok"} 200`; `/` returned 200; pest, phpstan (level 9) and pint passed in the container; after an api restart the stack stayed healthy, which shows migrations and seeding are idempotent. The parent spot-checked `up --wait` and the health curl.
+  - Deviations: the api healthcheck (`nc` on port 9000) gates `web`; one nginx regex location handles `/api` and `/sanctum`; the code is baked into the image (rebuild after changes); `DatabaseSeeder` is empty until T06.
+  - Environment issue: Compose v5 bake builds hang on this machine; `COMPOSE_BAKE=false` builds in about 1 minute. The README run instructions must mention this.
+  - Backend tests now run inside the container: `docker compose exec api ./vendor/bin/pest`.
 - [ ] T04 Catalog domain: Sku, Money, Stock value objects, Product entity, validation rules. Route: D. Check: Pest unit tests green.
 - [ ] T05 Catalog persistence: products/categories migrations (unique sku that includes deleted rows, soft deletes, pg_trgm indexes), Eloquent repository and mapping. Route: D. Check: Pest feature tests against Postgres.
 - [ ] T06 Identity: Sanctum SPA, register/login/logout/me, admin and buyer roles, policies, demo seeders. Route: D. Check: feature tests for auth and role access.
