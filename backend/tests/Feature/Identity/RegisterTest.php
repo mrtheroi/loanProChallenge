@@ -96,3 +96,22 @@ it('returns the email validation error when a concurrent registration takes the 
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['email' => 'The email has already been taken.']);
 });
+
+it('stores the email trimmed and lowercased', function (): void {
+    $this->postJson('/api/auth/register', registerPayload(['email' => '  Ada@Example.COM ']))
+        ->assertCreated()
+        ->assertJsonPath('data.email', 'ada@example.com');
+
+    expect(User::query()->sole()->email)->toBe('ada@example.com');
+});
+
+it('rejects an email that differs only by case from a registered one', function (): void {
+    $this->postJson('/api/auth/register', registerPayload())->assertCreated();
+    auth()->guard('web')->logout();
+
+    $this->postJson('/api/auth/register', registerPayload(['email' => 'ADA@example.com']))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['email']);
+
+    expect(User::query()->count())->toBe(1);
+});

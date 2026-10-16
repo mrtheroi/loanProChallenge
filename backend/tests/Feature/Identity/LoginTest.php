@@ -77,3 +77,22 @@ it('throttles the sixth login attempt within a minute for the same email and ip'
     $this->postJson('/api/auth/login', ['email' => 'other@example.com', 'password' => 'wrong-password'])
         ->assertUnprocessable();
 });
+
+it('logs in when the email differs in case and surrounding spaces', function (): void {
+    loginTestAdmin();
+
+    $this->postJson('/api/auth/login', ['email' => '  Admin@Example.COM ', 'password' => 'correct-password'])
+        ->assertOk()
+        ->assertJsonPath('data.email', 'admin@example.com');
+});
+
+it('throttles login attempts by the normalized email', function (): void {
+    loginTestAdmin();
+
+    foreach (['admin@example.com', 'Admin@Example.com', ' ADMIN@example.com', 'admin@EXAMPLE.com ', 'aDmIn@example.com'] as $email) {
+        $this->postJson('/api/auth/login', ['email' => $email, 'password' => 'wrong-password'])->assertUnprocessable();
+    }
+
+    $this->postJson('/api/auth/login', ['email' => '  Admin@Example.COM ', 'password' => 'correct-password'])
+        ->assertTooManyRequests();
+});

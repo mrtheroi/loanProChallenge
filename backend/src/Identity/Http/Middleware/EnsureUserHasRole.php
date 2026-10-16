@@ -22,7 +22,7 @@ final class EnsureUserHasRole
             throw new AuthenticationException;
         }
 
-        abort_unless($user->role === Role::from($role), Response::HTTP_FORBIDDEN);
+        abort_unless($user->role === Role::tryFrom($role), Response::HTTP_FORBIDDEN);
 
         return $next($request);
     }

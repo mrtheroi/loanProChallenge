@@ -10,6 +10,8 @@ use Illuminate\Validation\Rules\Password;
 
 final class RegisterRequest extends FormRequest
 {
+    use NormalizesEmail;
+
     /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
