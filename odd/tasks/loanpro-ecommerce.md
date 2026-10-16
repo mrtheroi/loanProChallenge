@@ -43,17 +43,20 @@ PHP 8.4.25, Composer 2.10.2, Node 20.20.2, npm 11.14.1, Docker 29.4.1, Compose v
 - Forecast: about 5,700 authored changed lines, well above the 400-line slice budget.
 - Strategy: ask-on-risk. The chain strategy is **stacked-to-main** (chosen by the user on 2026-10-15). Each slice branch starts from the previous one, and the PRs merge into `main` in order.
 - Base: `main` holds an empty root commit (`chore: initial commit`) so that the first PR has a base.
-- Planned slices (branch → tasks):
-  1. `feat/01-bootstrap` → T01, T02, T03
-  2. `feat/02-catalog-domain` → T04, T05
-  3. `feat/03-identity` → T06
-  4. `feat/04-catalog-api` → T07, T08
-  5. `feat/05-import` → T09
-  6. `feat/06-ordering` → T10, T11
-  7. `feat/07-frontend-foundation` → T12, T13
-  8. `feat/08-store-checkout` → T14, T15
-  9. `feat/09-admin-ui` → T16, T17
-  10. `feat/10-ci-docs` → T18, T19 (T20 optional)
+- Planned slices (branch → tasks). Revised on 2026-10-16: slice 2 was split because T04 + T05 came to about 1,050 lines.
+  1. `feat/01-bootstrap` → T01, T02, T03, T03b (PR #1)
+  2. `feat/02-catalog-domain` → T04
+  3. `feat/03-catalog-persistence` → T05
+  4. `feat/04-identity` → T06
+  5. `feat/05-catalog-api` → T07, T08
+  6. `feat/06-import` → T09
+  7. `feat/07-ordering` → T10, T11
+  8. `feat/08-frontend-foundation` → T12, T13
+  9. `feat/09-store-checkout` → T14, T15
+  10. `feat/10-admin-ui` → T16, T17
+  11. `feat/11-ci-docs` → T18, T19 (T20 optional)
+- Each stacked PR targets its parent branch, so its diff shows only its own work unit; it is retargeted to `main` once the parent merges.
+- Every PR gets an `@codex review` comment after it is opened (user rule).
 - Framework-generated scaffolding (Laravel and Vite skeletons, lock files) does not count toward the line budget.
 
 ## Tasks
