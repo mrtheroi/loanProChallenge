@@ -159,7 +159,18 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
     - Follow-up review on PR #4 after the rebase onto main (lineage `review-df412755db034785`, approved): `\p{Cc}` now defines control characters in the 3 text checks (DEL and C1 included); login and register without a stateful SPA session return 403 instead of a silent 200 (`4ad5f81`). Next review (lineage `review-3d23ef0b2ae57ac2`, approved): the login throttle key now trims as well as lowercases, so it does not depend on the global TrimStrings middleware (proven with a test that disables it).
     - Accepted: the `lower(email)` unique index migration assumes no existing case-variant duplicates; this is a greenfield database, and the boundary normalizes every new email.
     - Accepted trade-offs: register reveals existing emails (mitigated by the per-IP throttle); Laravel 13 accepts `Sec-Fetch-Site: same-origin` without a token; repository `save()` is last-write-wins (T07 create must reject existing SKUs); a real two-connection race test is deferred to T11.
-- [ ] T07 Catalog API: admin-only CRUD, category find-or-create, soft delete, reserved SKU error. Route: D. Check: feature tests.
+- [x] T07 Catalog API: admin-only CRUD, category find-or-create, soft delete, reserved SKU error. Route: D. Check: feature tests.
+  - Route: delegated writer (about 389 production lines and 453 test lines). The root-cause quality bar was given up front.
+  - API, under `auth:sanctum` + `can:manage-catalog` (guest 401, buyer 403, tested per verb, with a mutation check):
+    - `POST /api/admin/products` returns 201, or 422 on `sku` when the SKU already exists or is reserved.
+    - `GET /api/admin/products/{sku}` returns 200, or 404.
+    - `PUT /api/admin/products/{sku}` is a full update; the SKU is immutable and renaming is allowed.
+    - `DELETE /api/admin/products/{sku}` returns 204 (soft delete; the SKU stays reserved).
+  - `price` and `weight_kg` must be JSON strings. Wrong JSON types return 422, never 500.
+  - Domain errors are mapped centrally in `Catalog/Infrastructure/Http/CatalogExceptions` (wired from `bootstrap/app.php`).
+  - Create is insert-only through the new port method `ProductRepository::add` (no check-then-upsert); `delete(Sku)` is an atomic soft delete.
+  - Checks: full suite 316 tests / 864 assertions (the parent re-ran it); curl CRUD through nginx passed; phpstan level 9 reported 0 errors; pint passed; Domain and Application are framework-free.
+  - Gaps: if an update races a delete, the client gets 422 "reserved" instead of 404 (still a 4xx); a real two-connection race for `add` is deferred to T11.
 - [ ] T08 Search API: free text, filters, sorting, pagination. Route: D. Check: feature tests.
 - [ ] T09 Import: CSV reader, row validation, in-file duplicate detection, name-guarded upsert, per-row report endpoint. Route: D. Check: unit + feature tests, including the sample CSV traps.
 - [ ] T10 Ordering: orders/order_items with snapshots, atomic Checkout use case, PaymentGateway port + fake adapter, idempotency, My orders. Route: D. Check: unit + feature tests.

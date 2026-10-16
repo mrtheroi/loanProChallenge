@@ -5,7 +5,9 @@ declare(strict_types=1);
 use Ecommerce\Catalog\Domain\CategoryName;
 use Ecommerce\Catalog\Domain\Money;
 use Ecommerce\Catalog\Domain\Product;
+use Ecommerce\Catalog\Domain\ProductAlreadyExists;
 use Ecommerce\Catalog\Domain\ProductName;
+use Ecommerce\Catalog\Domain\ProductNotFound;
 use Ecommerce\Catalog\Domain\ProductRepository;
 use Ecommerce\Catalog\Domain\Sku;
 use Ecommerce\Catalog\Domain\SkuIsReserved;
@@ -181,3 +183,50 @@ it('casts numeric product columns to integers regardless of the driver represent
         ->and($model->stock)->toBe(7)
         ->and($model->weight_grams)->toBe(125);
 });
+
+it('adds a new product that can be found by sku', function (): void {
+    productRepository()->add(aPersistableProduct());
+
+    expect(productRepository()->findBySku(Sku::fromString('SKU-001')))->toEqual(aPersistableProduct());
+});
+
+it('refuses to add a sku held by a live product and keeps the existing product', function (): void {
+    productRepository()->add(aPersistableProduct(name: 'Original'));
+
+    expect(fn () => productRepository()->add(aPersistableProduct(name: 'Intruder', price: '1.00')))
+        ->toThrow(ProductAlreadyExists::class, 'SKU-001');
+
+    expect(productRepository()->findBySku(Sku::fromString('SKU-001')))->toEqual(aPersistableProduct(name: 'Original'))
+        ->and(ProductModel::withTrashed()->count())->toBe(1);
+});
+
+it('refuses to add the sku of a soft-deleted product as reserved', function (): void {
+    productRepository()->add(aPersistableProduct());
+    ProductModel::query()->where('sku', 'SKU-001')->firstOrFail()->delete();
+
+    expect(fn () => productRepository()->add(aPersistableProduct(name: 'Replacement')))
+        ->toThrow(SkuIsReserved::class, 'SKU-001');
+
+    expect(ProductModel::withTrashed()->count())->toBe(1);
+});
+
+it('soft deletes a live product', function (): void {
+    productRepository()->add(aPersistableProduct());
+
+    productRepository()->delete(Sku::fromString('sku-001'));
+
+    expect(productRepository()->findBySku(Sku::fromString('SKU-001')))->toBeNull()
+        ->and(ProductModel::onlyTrashed()->where('sku', 'SKU-001')->exists())->toBeTrue();
+});
+
+it('refuses to delete an unknown or already deleted product', function (bool $previouslyDeleted): void {
+    if ($previouslyDeleted) {
+        productRepository()->add(aPersistableProduct());
+        productRepository()->delete(Sku::fromString('SKU-001'));
+    }
+    $before = ProductModel::withTrashed()->get()->toArray();
+
+    expect(fn () => productRepository()->delete(Sku::fromString('SKU-001')))->toThrow(ProductNotFound::class, 'SKU-001');
+
+    expect(ProductModel::withTrashed()->get()->toArray())->toBe($before);
+})->with(['unknown' => [false], 'already deleted' => [true]]);
