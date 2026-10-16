@@ -16,7 +16,9 @@ The example CSV provided by the challenge is stored at [`docs/sample-data/produc
 
 _Full instructions will be documented as the project is built._
 
-Requirements: Docker with Compose v2 or later.
+Requirements: Docker with Docker Compose v2.1.1 or later (the first release with `up --wait`).
+
+The stack has two containers: `app` (Nginx, PHP-FPM, and the Laravel code in one image, run by supervisord) and `db` (PostgreSQL).
 
 ```bash
 docker compose up -d --build --wait
@@ -25,10 +27,22 @@ curl http://localhost:8080/api/health
 
 The application is served at `http://localhost:8080`, bound to localhost only.
 
+Development mode mounts `./backend` into the container, so code changes apply without a rebuild:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build --wait
+```
+
+Backend tests run inside the container against a dedicated PostgreSQL database:
+
+```bash
+docker compose exec app ./vendor/bin/pest
+```
+
 Notes:
 
 - If the build stalls with no output (an issue observed with the Compose Bake builder), run it with `COMPOSE_BAKE=false docker compose up -d --build --wait`.
-- Backend tests run inside the container against a dedicated PostgreSQL database: `docker compose exec api ./vendor/bin/pest`.
+- In development mode, `vendor` lives in the `backend-vendor` named volume, seeded from the image the first time it is created. After changing Composer dependencies, remove that volume (`docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v`) and rebuild.
 - The `ecommerce_test` database is created only the first time the database volume is initialized. If the volume predates it, recreate the volume with `docker compose down -v`.
 - The `APP_KEY` and database credentials in `docker-compose.yml` are for local development only.
 

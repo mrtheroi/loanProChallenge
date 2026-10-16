@@ -16,4 +16,4 @@ php artisan db:seed --force
 
 chown -R www-data:www-data storage bootstrap/cache
 
-exec php-fpm
+exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
