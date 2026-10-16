@@ -96,3 +96,19 @@ it('throttles login attempts by the normalized email', function (): void {
     $this->postJson('/api/auth/login', ['email' => '  Admin@Example.COM ', 'password' => 'correct-password'])
         ->assertTooManyRequests();
 });
+
+it('rejects a non-string email with a validation error', function (): void {
+    $this->postJson('/api/auth/login', ['email' => ['a'], 'password' => 'x'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['email']);
+});
+
+it('throttles one ip that sprays login attempts across many emails', function (): void {
+    foreach (range(1, 20) as $attempt) {
+        $this->postJson('/api/auth/login', ['email' => "user{$attempt}@example.com", 'password' => 'wrong-password'])
+            ->assertUnprocessable();
+    }
+
+    $this->postJson('/api/auth/login', ['email' => 'user21@example.com', 'password' => 'wrong-password'])
+        ->assertTooManyRequests();
+});

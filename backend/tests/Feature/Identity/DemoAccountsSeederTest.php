@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use Database\Seeders\AdminUserSeeder;
+use Database\Seeders\DemoBuyerSeeder;
 use Ecommerce\Identity\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -49,4 +51,29 @@ it('creates no demo accounts in the production environment', function (): void {
     $this->artisan('db:seed', ['--force' => true])->assertSuccessful();
 
     expect(User::query()->count())->toBe(0);
+});
+
+it('creates no demo accounts outside the local and testing environments', function (): void {
+    $this->app->detectEnvironment(fn (): string => 'staging');
+
+    $this->artisan('db:seed', ['--force' => true])->assertSuccessful();
+
+    expect(User::query()->count())->toBe(0);
+});
+
+it('creates no demo account when a demo seeder runs directly in production', function (string $seeder): void {
+    $this->app->detectEnvironment(fn (): string => 'production');
+
+    $this->artisan('db:seed', ['--class' => $seeder, '--force' => true])->assertSuccessful();
+
+    expect(User::query()->count())->toBe(0);
+})->with([AdminUserSeeder::class, DemoBuyerSeeder::class]);
+
+it('seeds the demo accounts idempotently in the local environment', function (): void {
+    $this->app->detectEnvironment(fn (): string => 'local');
+
+    $this->artisan('db:seed')->assertSuccessful();
+    $this->artisan('db:seed')->assertSuccessful();
+
+    expect(User::query()->orderBy('email')->pluck('email')->all())->toBe(['admin@example.com', 'buyer@example.com']);
 });

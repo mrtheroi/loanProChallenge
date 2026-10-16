@@ -27,3 +27,15 @@ it('defaults the role column to buyer', function (): void {
 it('does not allow a null role', function (): void {
     expect(fn () => usersRoleColumnInsert(['role' => null]))->toThrow(QueryException::class);
 });
+
+it('rejects a role outside the domain on insert', function (): void {
+    expect(fn () => usersRoleColumnInsert(['role' => 'superadmin']))
+        ->toThrow(QueryException::class, 'users_role_valid');
+});
+
+it('rejects a role outside the domain on update', function (): void {
+    usersRoleColumnInsert();
+
+    expect(fn () => DB::table('users')->update(['role' => 'superadmin']))
+        ->toThrow(QueryException::class, 'users_role_valid');
+});

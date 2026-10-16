@@ -50,7 +50,7 @@ Notes:
 
 ### Demo accounts
 
-The seeders run on every boot and create these two accounts only when they are missing. They never modify an existing account (a changed password or role is kept), and they create nothing when `APP_ENV` is `production`:
+The seeders run on every boot and create these two accounts only when they are missing. They never modify an existing account (a changed password or role is kept), and they create accounts only when `APP_ENV` is `local` or `testing` (any other environment, including running a single seeder with `--class`, creates nothing):
 
 | Role | Email | Password |
 |------|-------|----------|

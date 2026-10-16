@@ -16,8 +16,16 @@ final class IdentityServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        RateLimiter::for('login', fn (Request $request): Limit => Limit::perMinute(5)
-            ->by(Str::lower($request->string('email')->toString()).'|'.$request->ip()));
+        RateLimiter::for('login', function (Request $request): array {
+            $email = $request->input('email');
+
+            return [
+                Limit::perMinute(5)->by(Str::lower(is_string($email) ? $email : '').'|'.$request->ip()),
+                Limit::perMinute(20)->by('ip:'.$request->ip()),
+            ];
+        });
+
+        RateLimiter::for('register', fn (Request $request): Limit => Limit::perMinute(10)->by((string) $request->ip()));
 
         Gate::define('manage-catalog', fn (User $user): bool => $user->role === Role::Admin);
         Gate::define('purchase', fn (User $user): bool => $user->role === Role::Buyer);

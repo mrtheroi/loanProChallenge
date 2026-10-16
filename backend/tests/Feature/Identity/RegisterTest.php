@@ -115,3 +115,24 @@ it('rejects an email that differs only by case from a registered one', function 
 
     expect(User::query()->count())->toBe(1);
 });
+
+it('rejects a name that is not valid UTF-8 text', function (string $name): void {
+    $this->post('/api/auth/register', registerPayload(['name' => $name]), ['Accept' => 'application/json'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['name']);
+
+    expect(User::query()->count())->toBe(0);
+})->with([
+    'invalid UTF-8 byte' => [urldecode('%FF')],
+    'NUL byte' => ["Ada\0Buyer"],
+]);
+
+it('throttles the eleventh registration attempt within a minute from the same ip', function (): void {
+    foreach (range(1, 10) as $attempt) {
+        $this->postJson('/api/auth/register', registerPayload(['name' => '']))->assertUnprocessable();
+    }
+
+    $this->postJson('/api/auth/register', registerPayload())->assertTooManyRequests();
+
+    expect(User::query()->count())->toBe(0);
+});
