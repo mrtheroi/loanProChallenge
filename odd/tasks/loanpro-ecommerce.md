@@ -170,7 +170,12 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
   - Domain errors are mapped centrally in `Catalog/Infrastructure/Http/CatalogExceptions` (wired from `bootstrap/app.php`).
   - Create is insert-only through the new port method `ProductRepository::add` (no check-then-upsert); `delete(Sku)` is an atomic soft delete.
   - Checks: full suite 316 tests / 864 assertions (the parent re-ran it); curl CRUD through nginx passed; phpstan level 9 reported 0 errors; pint passed; Domain and Application are framework-free.
-  - Gaps: if an update races a delete, the client gets 422 "reserved" instead of 404 (still a 4xx); a real two-connection race for `add` is deferred to T11.
+  - Review follow-up (native review, lineage `review-e3608f86664903c3`): updates are now atomic and update-only through `ProductRepository::update` (a single conditional UPDATE on the live row; 0 affected rows throws `ProductNotFound`; it never inserts). An update racing a delete now returns 404, proven by an in-flight race test (`335e8c1`). Native review approved (lineage `review-948fdd0a9067d36b`).
+  - Notes:
+    - Write primitives: create = `add` (insert-only), update = `update` (update-only), delete = `delete` (atomic soft delete); the upsert `save` is reserved for the T09 import.
+    - The affected-row check relies on PostgreSQL counting matched rows; MySQL counts only changed rows, which is noted but out of scope (the stack is Postgres).
+    - Behavior change: `PUT` to an unknown SKU with a mismatched body SKU returns 422 on `sku` (body validation runs first).
+    - A real two-connection race for `add` is deferred to T11.
 - [ ] T08 Search API: free text, filters, sorting, pagination. Route: D. Check: feature tests.
 - [ ] T09 Import: CSV reader, row validation, in-file duplicate detection, name-guarded upsert, per-row report endpoint. Route: D. Check: unit + feature tests, including the sample CSV traps.
 - [ ] T10 Ordering: orders/order_items with snapshots, atomic Checkout use case, PaymentGateway port + fake adapter, idempotency, My orders. Route: D. Check: unit + feature tests.
