@@ -121,7 +121,11 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
     - A root-owned `.env` left by an older boot stays root-owned.
     - The port and `APP_URL` must be kept in sync.
     - The committed dev `APP_KEY` (already documented).
-- [ ] T04 Catalog domain: Sku, Money, Stock value objects, Product entity, validation rules. Route: D. Check: Pest unit tests green.
+- [x] T04 Catalog domain: Sku, Money, Stock value objects, Product entity, validation rules. Route: D. Check: Pest unit tests green.
+  - Route: delegated writer (10 domain classes and 7 test files). Strict TDD; the RED/GREEN log is in the writer report (each behavior failed first for a missing behavior).
+  - Domain: `Sku`, `ProductName`, `CategoryName` (with `normalized()`), `Money` (integer cents, no floats), `Stock`, `Weight` (integer grams, optional), `Product`, and `InvalidProductAttribute(field, reason)`. Shared helpers: `RequiredText` and `ScaledDecimal`.
+  - Assumptions: SKU equality is case-sensitive; max lengths are 64, 255 and 100 characters (`mb_strlen`); weight has up to 3 decimals; overflow is rejected as "is too large"; `+5`, `1e3`, `.99`, `29.` and decimal commas are rejected; leading zeros are accepted.
+  - Checks: pest unit 97 tests / 174 assertions (the parent re-ran it as a spot check); phpstan level 9 reported 0 errors; pint passed; there are no `Illuminate` references in the domain.
 - [ ] T05 Catalog persistence: products/categories migrations (unique sku that includes deleted rows, soft deletes, pg_trgm indexes), Eloquent repository and mapping. Route: D. Check: Pest feature tests against Postgres.
 - [ ] T06 Identity: Sanctum SPA, register/login/logout/me, admin and buyer roles, policies, demo seeders. Route: D. Check: feature tests for auth and role access.
 - [ ] T07 Catalog API: admin-only CRUD, category find-or-create, soft delete, reserved SKU error. Route: D. Check: feature tests.
