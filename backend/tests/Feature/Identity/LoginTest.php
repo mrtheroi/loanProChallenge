@@ -1,0 +1,79 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Feature\Identity\BrowserSession;
+
+uses(RefreshDatabase::class);
+
+beforeEach(function (): void {
+    BrowserSession::persistSessionsInDatabase();
+    $this->withHeader('Referer', 'http://localhost:8000');
+});
+
+function loginTestAdmin(): User
+{
+    return User::factory()->admin()->create(['email' => 'admin@example.com', 'password' => 'correct-password']);
+}
+
+it('logs in with valid credentials and keeps the session', function (): void {
+    $admin = loginTestAdmin();
+
+    $login = $this->postJson('/api/auth/login', ['email' => 'admin@example.com', 'password' => 'correct-password'])
+        ->assertOk()
+        ->assertExactJson(['data' => [
+            'id' => $admin->id,
+            'name' => $admin->name,
+            'email' => 'admin@example.com',
+            'role' => 'admin',
+        ]]);
+
+    BrowserSession::carryCookie($this, $login);
+
+    $this->getJson('/api/auth/me')->assertOk()->assertJsonPath('data.role', 'admin');
+});
+
+it('regenerates the session id and the csrf token on login', function (): void {
+    loginTestAdmin();
+    $cookieName = config('session.cookie');
+
+    $guest = $this->get('/sanctum/csrf-cookie')->assertNoContent();
+    BrowserSession::carryCookie($this, $guest);
+
+    $login = $this->postJson('/api/auth/login', ['email' => 'admin@example.com', 'password' => 'correct-password'])
+        ->assertOk();
+
+    expect($login->getCookie($cookieName)->getValue())->not->toBe($guest->getCookie($cookieName)->getValue())
+        ->and($login->getCookie('XSRF-TOKEN')->getValue())->not->toBe($guest->getCookie('XSRF-TOKEN')->getValue());
+});
+
+it('rejects invalid credentials with the same generic message', function (string $email, string $password): void {
+    loginTestAdmin();
+
+    $this->postJson('/api/auth/login', ['email' => $email, 'password' => $password])
+        ->assertUnprocessable()
+        ->assertExactJson([
+            'message' => __('auth.failed'),
+            'errors' => ['email' => [__('auth.failed')]],
+        ]);
+
+    $this->getJson('/api/auth/me')->assertUnauthorized();
+})->with([
+    'wrong password' => ['admin@example.com', 'wrong-password'],
+    'unknown email' => ['nobody@example.com', 'correct-password'],
+]);
+
+it('throttles the sixth login attempt within a minute for the same email and ip', function (): void {
+    loginTestAdmin();
+    $credentials = ['email' => 'admin@example.com', 'password' => 'wrong-password'];
+
+    foreach (range(1, 5) as $attempt) {
+        $this->postJson('/api/auth/login', $credentials)->assertUnprocessable();
+    }
+
+    $this->postJson('/api/auth/login', $credentials)->assertTooManyRequests();
+    $this->postJson('/api/auth/login', ['email' => 'other@example.com', 'password' => 'wrong-password'])
+        ->assertUnprocessable();
+});

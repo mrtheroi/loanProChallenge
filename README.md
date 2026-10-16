@@ -48,6 +48,17 @@ Notes:
 - The `ecommerce_test` database is created only the first time the database volume is initialized. If the volume predates it, recreate the volume with `docker compose down -v`.
 - The `APP_KEY` and database credentials in `docker-compose.yml` are for local development only.
 
+### Demo accounts
+
+The seeders create two accounts on every boot (running them again does not duplicate them):
+
+| Role | Email | Password |
+|------|-------|----------|
+| admin | `admin@example.com` | `password` |
+| buyer | `buyer@example.com` | `password` |
+
+These accounts are for local evaluation only. New sign-ups always get the buyer role; the admin account exists only through the seeder.
+
 ## Decisions, approach, and alternatives considered
 
 _To be documented._

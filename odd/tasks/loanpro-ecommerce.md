@@ -32,7 +32,7 @@ Show deliberate decisions with documented tradeoffs: what was asked, what was as
 - **Payment**: a PaymentGateway port with a FakePaymentGateway adapter. Card 4242… approves and 4000…0002 declines. Only the brand and last 4 digits are stored. Each checkout sends an Idempotency-Key.
 - **Search**: ILIKE + pg_trgm over name, sku, and description. Filters: category, price range, in stock. Sorting by name or price. Server-side pagination.
 - **Deletion**: logical deletion everywhere. Orders are never deleted.
-- **Docker**: db (Postgres), api (PHP-FPM; runs migrations and seeders on boot), and web (Nginx serving the SPA and proxying /api and /sanctum). Single origin at localhost:8080.
+- **Docker**: db (Postgres), api (PHP-FPM; runs migrations and seeders on boot), and web (Nginx serving the SPA and proxying /api and /sanctum). Single origin at localhost:8000 (revised from 8080).
 - **Frontend libraries**: TanStack Query, React Router, React Hook Form + Zod, Zustand persist, Tailwind 4 + shadcn/ui (in shared/ui).
 - **Tests**: Pest unit + feature (against Postgres), Vitest + RTL + MSW, Larastan + Pint, ESLint + TypeScript strict, GitHub Actions. Concurrency gets a two-process integration test or a declared gap. Playwright is optional.
 
@@ -138,7 +138,14 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
     - Saving a SKU of a soft-deleted product currently surfaces as `UniqueConstraintViolationException`; T07 must map it to the domain error "SKU belongs to a deleted product".
     - Soft-deleted categories are not handled.
     - The transaction rollback is untested, and concurrent saves are untested.
-- [ ] T06 Identity: Sanctum SPA, register/login/logout/me, admin and buyer roles, policies, demo seeders. Route: D. Check: feature tests for auth and role access.
+- [x] T06 Identity: Sanctum SPA, register/login/logout/me, admin and buyer roles, policies, demo seeders. Route: D. Check: feature tests for auth and role access.
+  - Route: delegated writer (about 330 production lines and 416 test lines).
+  - Built: `Role` enum (admin, buyer) in a `users.role` column (NOT NULL, default buyer, not mass-assignable); `statefulApi()` (Sanctum SPA cookie mode); `POST /api/auth/register` (always creates a buyer; a `role: admin` field in the payload is ignored), `login` (throttled 5 per minute per email+IP; the generic 422 does not reveal whether the email exists), `logout` (invalidates the session and rotates the CSRF token), and `GET me`; a `role` middleware alias (401 for guests, 403 for the wrong role); gates `manage-catalog` and `purchase`; idempotent seeders admin@example.com and buyer@example.com, both with password `password` (F5 resolved); README demo accounts.
+  - Checks: full suite 146 tests / 294 assertions (the parent re-ran it); `migrate:fresh --seed` plus a second `db:seed` still leaves exactly 2 users; curl through nginx returned csrf-cookie 204, login 200 (admin), me 200, and 419 without XSRF; phpstan level 9 reported 0 errors; pint passed.
+  - Notes:
+    - The session-flow tests use a `BrowserSession` helper that forces database sessions; without it, the same-session test passed even with the cookie removed.
+    - Laravel 13 already regenerates the session on login.
+    - The stock `GET /api/user` route from `install:api` is still present (a candidate for removal).
 - [ ] T07 Catalog API: admin-only CRUD, category find-or-create, soft delete, reserved SKU error. Route: D. Check: feature tests.
 - [ ] T08 Search API: free text, filters, sorting, pagination. Route: D. Check: feature tests.
 - [ ] T09 Import: CSV reader, row validation, in-file duplicate detection, name-guarded upsert, per-row report endpoint. Route: D. Check: unit + feature tests, including the sample CSV traps.
