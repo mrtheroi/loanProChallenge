@@ -43,6 +43,8 @@ Notes:
 
 - If the build stalls with no output (an issue observed with the Compose Bake builder), run it with `COMPOSE_BAKE=false docker compose up -d --build --wait`.
 - In development mode, `vendor` lives in the `backend-vendor` named volume, seeded from the image the first time it is created. After changing Composer dependencies, remove that volume (`docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v`) and rebuild.
+- In development mode, the entrypoint does not change file ownership on the mounted source. It makes `storage` and `bootstrap/cache` group- and world-writable instead, so PHP-FPM can write to them while the files stay owned by the host user. This is acceptable for local development only.
+- If PHP-FPM or Nginx cannot be restarted, supervisord shuts down, the container exits, and Docker restarts it according to the `unless-stopped` policy.
 - The `ecommerce_test` database is created only the first time the database volume is initialized. If the volume predates it, recreate the volume with `docker compose down -v`.
 - The `APP_KEY` and database credentials in `docker-compose.yml` are for local development only.
 

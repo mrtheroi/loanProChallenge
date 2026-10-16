@@ -101,6 +101,9 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
     - F9: in dev mode the bind mount hides the image's storage dirs, and the entrypoint chowns host files.
     - F10: the 10M upload limit is set in both php.ini and nginx; keep them in sync.
     - F11: add a repeatable smoke script (or CI step) for the packaging checks.
+  - Codex review on PR #1 (2026-10-16) raised F8 and F9 again as P2. Both were fixed on `feat/01-bootstrap` with the user's approval:
+    - F8: a supervisord `eventlistener` on `PROCESS_STATE_FATAL` sends SIGTERM to supervisord. Proof: php-fpm was removed and killed inside the container; supervisord logged `php-fpm entered FATAL state`, then shut down, and the Docker RestartCount went from 0 to 1. After a force-recreate, health returned 200.
+    - F9: in dev mode (`APP_SOURCE_MOUNTED=true` from `docker-compose.dev.yml`) the entrypoint runs `chmod -R a+rwX` instead of `chown`. Proof: the host owner stayed 501:20, www-data could write to `storage/logs`, pest passed 2/2 in dev mode, and `git status` showed no mode changes.
 - [ ] T04 Catalog domain: Sku, Money, Stock value objects, Product entity, validation rules. Route: D. Check: Pest unit tests green.
 - [ ] T05 Catalog persistence: products/categories migrations (unique sku that includes deleted rows, soft deletes, pg_trgm indexes), Eloquent repository and mapping. Route: D. Check: Pest feature tests against Postgres.
 - [ ] T06 Identity: Sanctum SPA, register/login/logout/me, admin and buyer roles, policies, demo seeders. Route: D. Check: feature tests for auth and role access.
@@ -128,6 +131,7 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
 ## Progress
 - 2026-10-15: Decision round closed. Feature document created.
 - 2026-10-15: Chain strategy set to stacked-to-main. T01 done on `feat/01-bootstrap`.
+- 2026-10-16: Slice 1 complete (T01, T02, T03, hardening, T03b). Pushed, and PR #1 opened: https://github.com/mrtheroi/loanProChallenge/pull/1 (`size:exception` recommended: about 12,300 generated or data lines; about 430 authored).
 
 ## Next step
-T02, the backend scaffold, on `feat/01-bootstrap`.
+Slice 2 (`feat/02-catalog-domain`, branched from `feat/01-bootstrap`): T04, the Catalog domain.
