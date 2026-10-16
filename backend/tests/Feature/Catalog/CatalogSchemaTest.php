@@ -44,3 +44,11 @@ it('enables pg_trgm and indexes name, sku and description with trigram GIN index
             ->toBeTrue("missing trigram index on {$column}");
     }
 });
+
+it('keeps the pg_trgm extension installed when its migration is rolled back', function (): void {
+    $migration = require database_path('migrations/2026_10_16_100000_enable_pg_trgm_extension.php');
+
+    $migration->down();
+
+    expect(DB::table('pg_extension')->where('extname', 'pg_trgm')->exists())->toBeTrue();
+});
