@@ -1,0 +1,10 @@
+services:
+  app:
+    environment:
+      APP_SOURCE_MOUNTED: "true"
+    volumes:
+      - ./backend:/var/www/html
+      - backend-vendor:/var/www/html/vendor
+
+volumes:
+  backend-vendor:
