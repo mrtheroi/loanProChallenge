@@ -43,17 +43,20 @@ PHP 8.4.25, Composer 2.10.2, Node 20.20.2, npm 11.14.1, Docker 29.4.1, Compose v
 - Forecast: about 5,700 authored changed lines, well above the 400-line slice budget.
 - Strategy: ask-on-risk. The chain strategy is **stacked-to-main** (chosen by the user on 2026-10-15). Each slice branch starts from the previous one, and the PRs merge into `main` in order.
 - Base: `main` holds an empty root commit (`chore: initial commit`) so that the first PR has a base.
-- Planned slices (branch → tasks):
-  1. `feat/01-bootstrap` → T01, T02, T03
-  2. `feat/02-catalog-domain` → T04, T05
-  3. `feat/03-identity` → T06
-  4. `feat/04-catalog-api` → T07, T08
-  5. `feat/05-import` → T09
-  6. `feat/06-ordering` → T10, T11
-  7. `feat/07-frontend-foundation` → T12, T13
-  8. `feat/08-store-checkout` → T14, T15
-  9. `feat/09-admin-ui` → T16, T17
-  10. `feat/10-ci-docs` → T18, T19 (T20 optional)
+- Planned slices (branch → tasks). Revised on 2026-10-16: slice 2 was split because T04 + T05 came to about 1,050 lines.
+  1. `feat/01-bootstrap` → T01, T02, T03, T03b (PR #1)
+  2. `feat/02-catalog-domain` → T04
+  3. `feat/03-catalog-persistence` → T05
+  4. `feat/04-identity` → T06
+  5. `feat/05-catalog-api` → T07, T08
+  6. `feat/06-import` → T09
+  7. `feat/07-ordering` → T10, T11
+  8. `feat/08-frontend-foundation` → T12, T13
+  9. `feat/09-store-checkout` → T14, T15
+  10. `feat/10-admin-ui` → T16, T17
+  11. `feat/11-ci-docs` → T18, T19 (T20 optional)
+- Each stacked PR targets its parent branch, so its diff shows only its own work unit; it is retargeted to `main` once the parent merges.
+- Every PR gets an `@codex review` comment after it is opened (user rule).
 - Framework-generated scaffolding (Laravel and Vite skeletons, lock files) does not count toward the line budget.
 
 ## Tasks
@@ -121,8 +124,20 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
     - A root-owned `.env` left by an older boot stays root-owned.
     - The port and `APP_URL` must be kept in sync.
     - The committed dev `APP_KEY` (already documented).
-- [ ] T04 Catalog domain: Sku, Money, Stock value objects, Product entity, validation rules. Route: D. Check: Pest unit tests green.
-- [ ] T05 Catalog persistence: products/categories migrations (unique sku that includes deleted rows, soft deletes, pg_trgm indexes), Eloquent repository and mapping. Route: D. Check: Pest feature tests against Postgres.
+- [x] T04 Catalog domain: Sku, Money, Stock value objects, Product entity, validation rules. Route: D. Check: Pest unit tests green.
+  - Route: delegated writer (10 domain classes and 7 test files). Strict TDD; the RED/GREEN log is in the writer report (each behavior failed first for a missing behavior).
+  - Domain: `Sku`, `ProductName`, `CategoryName` (with `normalized()`), `Money` (integer cents, no floats), `Stock`, `Weight` (integer grams, optional), `Product`, and `InvalidProductAttribute(field, reason)`. Shared helpers: `RequiredText` and `ScaledDecimal`.
+  - Assumptions: SKU equality was case-sensitive (superseded on 2026-10-16: SKUs are always stored uppercase, by user decision); max lengths are 64, 255 and 100 characters (`mb_strlen`); weight has up to 3 decimals; overflow is rejected as "is too large"; `+5`, `1e3`, `.99`, `29.` and decimal commas are rejected; leading zeros are accepted.
+  - Checks: pest unit 97 tests / 174 assertions (the parent re-ran it as a spot check); phpstan level 9 reported 0 errors; pint passed; there are no `Illuminate` references in the domain.
+- [x] T05 Catalog persistence: products/categories migrations (unique sku that includes deleted rows, soft deletes, pg_trgm indexes), Eloquent repository and mapping. Route: D. Check: Pest feature tests against Postgres.
+  - Route: delegated writer (3 migrations, port, 2 models, repository, provider, tests).
+  - Built: `ProductRepository` port (`save` = upsert by SKU inside a transaction; `findBySku` excludes soft-deleted rows), `EloquentProductRepository`, `CatalogServiceProvider`, and `Money::fromCents` / `Weight::fromGrams` (both reject negatives).
+  - Schema: `pg_trgm` extension; `categories` with a unique `normalized_name`; `products` with a plain unique `sku` that also covers deleted rows (the reservation is proven by a raw insert), named CHECK constraints on price, stock and weight (proven by raw inserts), and 3 trigram GIN indexes.
+  - Checks: the full suite passed in the container, 115 tests / 204 assertions (the parent re-ran it); `migrate:fresh`, rollback and migrate ran clean; phpstan level 9 reported 0 errors; pint passed; the domain is framework-free.
+  - Notes for T07:
+    - Saving a SKU of a soft-deleted product currently surfaces as `UniqueConstraintViolationException`; T07 must map it to the domain error "SKU belongs to a deleted product".
+    - Soft-deleted categories are not handled.
+    - The transaction rollback is untested, and concurrent saves are untested.
 - [ ] T06 Identity: Sanctum SPA, register/login/logout/me, admin and buyer roles, policies, demo seeders. Route: D. Check: feature tests for auth and role access.
 - [ ] T07 Catalog API: admin-only CRUD, category find-or-create, soft delete, reserved SKU error. Route: D. Check: feature tests.
 - [ ] T08 Search API: free text, filters, sorting, pagination. Route: D. Check: feature tests.

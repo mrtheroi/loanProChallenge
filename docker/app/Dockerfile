@@ -2,9 +2,9 @@ FROM composer:2 AS composer
 
 FROM php:8.4-fpm-alpine
 
-RUN apk add --no-cache libpq unzip nginx supervisor \
-    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS postgresql-dev \
-    && docker-php-ext-install pdo_pgsql \
+RUN apk add --no-cache libpq icu-libs unzip nginx supervisor \
+    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS postgresql-dev icu-dev \
+    && docker-php-ext-install pdo_pgsql intl \
     && apk del .build-deps
 
 COPY --from=composer /usr/bin/composer /usr/bin/composer
