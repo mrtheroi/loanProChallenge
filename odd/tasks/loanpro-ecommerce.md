@@ -32,7 +32,7 @@ Show deliberate decisions with documented tradeoffs: what was asked, what was as
 - **Payment**: a PaymentGateway port with a FakePaymentGateway adapter. Card 4242… approves and 4000…0002 declines. Only the brand and last 4 digits are stored. Each checkout sends an Idempotency-Key.
 - **Search**: ILIKE + pg_trgm over name, sku, and description. Filters: category, price range, in stock. Sorting by name or price. Server-side pagination.
 - **Deletion**: logical deletion everywhere. Orders are never deleted.
-- **Docker**: db (Postgres), api (PHP-FPM; runs migrations and seeders on boot), and web (Nginx serving the SPA and proxying /api and /sanctum). Single origin at localhost:8080.
+- **Docker**: db (Postgres), api (PHP-FPM; runs migrations and seeders on boot), and web (Nginx serving the SPA and proxying /api and /sanctum). Single origin at localhost:8000 (revised from 8080).
 - **Frontend libraries**: TanStack Query, React Router, React Hook Form + Zod, Zustand persist, Tailwind 4 + shadcn/ui (in shared/ui).
 - **Tests**: Pest unit + feature (against Postgres), Vitest + RTL + MSW, Larastan + Pint, ESLint + TypeScript strict, GitHub Actions. Concurrency gets a two-process integration test or a declared gap. Playwright is optional.
 
@@ -138,7 +138,27 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
     - Saving a SKU of a soft-deleted product currently surfaces as `UniqueConstraintViolationException`; T07 must map it to the domain error "SKU belongs to a deleted product".
     - Soft-deleted categories are not handled.
     - The transaction rollback is untested, and concurrent saves are untested.
-- [ ] T06 Identity: Sanctum SPA, register/login/logout/me, admin and buyer roles, policies, demo seeders. Route: D. Check: feature tests for auth and role access.
+- [x] T06 Identity: Sanctum SPA, register/login/logout/me, admin and buyer roles, policies, demo seeders. Route: D. Check: feature tests for auth and role access.
+  - Route: delegated writer (about 330 production lines and 416 test lines).
+  - Built: `Role` enum (admin, buyer) in a `users.role` column (NOT NULL, default buyer, not mass-assignable); `statefulApi()` (Sanctum SPA cookie mode); `POST /api/auth/register` (always creates a buyer; a `role: admin` field in the payload is ignored), `login` (throttled 5 per minute per email+IP; the generic 422 does not reveal whether the email exists), `logout` (invalidates the session and rotates the CSRF token), and `GET me`; a `role` middleware alias (401 for guests, 403 for the wrong role); gates `manage-catalog` and `purchase`; idempotent seeders admin@example.com and buyer@example.com, both with password `password` (F5 resolved); README demo accounts.
+  - Checks: full suite 146 tests / 294 assertions (the parent re-ran it); `migrate:fresh --seed` plus a second `db:seed` still leaves exactly 2 users; curl through nginx returned csrf-cookie 204, login 200 (admin), me 200, and 419 without XSRF; phpstan level 9 reported 0 errors; pint passed.
+  - Notes:
+    - The session-flow tests use a `BrowserSession` helper that forces database sessions; without it, the same-session test passed even with the cookie removed.
+    - Laravel 13 already regenerates the session on login.
+    - The stock `GET /api/user` route from `install:api` was removed in the root-cause pass (`StockUserRouteTest` asserts 404).
+  - Consolidated native review (base `666e328`; covers T04, T05, the pg_trgm fix and T06): medium, 1,844 lines, consent granted, one lens (reliability), **approved** and acknowledged (lineage `review-7d1107ccb9268002`). The reviewed boundary is now `f47b518`. Advisory notes:
+    - All three notes are RESOLVED by the root-cause pass below: stock and weight are now bounded to int32; categories no longer use soft deletes; a mistyped `role:` parameter now returns 403.
+  - Root-cause pass (2026-10-16), triggered by repeated Codex findings on PRs #3 and #4 (decision record: Obsidian `Decisiones/2026-10-16-correccion-por-causa-raiz.md`):
+    - Cause 1, states the product never creates: category soft deletes removed.
+    - Cause 2, infrastructure errors leaking: `SkuIsReserved` (including a race), registration unique race returns 422, an array email on login returns 422, invalid UTF-8 or NUL in text returns a domain error or 422.
+    - Cause 3, domain/DB parity: column-by-column audit plus a max-value round-trip test, int casts, CHECKs for blank or padded name, `users_role_valid`, and `products_sku_format`.
+    - Cause 4, normalization: NFC, Unicode trim and whitespace collapse for categories; emails lowercased at the boundary plus a unique index on `lower(email)`; SKUs restricted to `[A-Z0-9._-]` and stored uppercase (user decision).
+    - Cause 5, fail-open: role middleware fails closed; demo seeders allowlisted to local/testing inside each seeder; per-IP throttles on register and login; a real 419 CSRF test; stock `GET /api/user` removed.
+    - Commits on feat/03: `9124f67`, `357987d`, `683d142`. Commits on feat/04: `981445c`, `9c4d429`, `4e0b81d`. Full suite: 230 tests / 519 assertions.
+    - Consolidated native review over PRs #3 and #4 (67 files, 2,535 lines): medium, consent granted, **approved** and acknowledged (lineage `review-5e56a3d82f7e71d7`). Remaining suggestion: demo seeders match the email exactly; a hand-inserted mixed-case demo email would collide with the `lower(email)` index (accepted, because the boundary always lowercases).
+    - Follow-up review on PR #4 after the rebase onto main (lineage `review-df412755db034785`, approved): `\p{Cc}` now defines control characters in the 3 text checks (DEL and C1 included); login and register without a stateful SPA session return 403 instead of a silent 200 (`4ad5f81`). Next review (lineage `review-3d23ef0b2ae57ac2`, approved): the login throttle key now trims as well as lowercases, so it does not depend on the global TrimStrings middleware (proven with a test that disables it).
+    - Accepted: the `lower(email)` unique index migration assumes no existing case-variant duplicates; this is a greenfield database, and the boundary normalizes every new email.
+    - Accepted trade-offs: register reveals existing emails (mitigated by the per-IP throttle); Laravel 13 accepts `Sec-Fetch-Site: same-origin` without a token; repository `save()` is last-write-wins (T07 create must reject existing SKUs); a real two-connection race test is deferred to T11.
 - [ ] T07 Catalog API: admin-only CRUD, category find-or-create, soft delete, reserved SKU error. Route: D. Check: feature tests.
 - [ ] T08 Search API: free text, filters, sorting, pagination. Route: D. Check: feature tests.
 - [ ] T09 Import: CSV reader, row validation, in-file duplicate detection, name-guarded upsert, per-row report endpoint. Route: D. Check: unit + feature tests, including the sample CSV traps.

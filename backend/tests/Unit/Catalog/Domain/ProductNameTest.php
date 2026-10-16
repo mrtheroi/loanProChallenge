@@ -35,4 +35,8 @@ it('rejects text that is not valid UTF-8 or contains control characters', functi
         expect($e->field())->toBe('name')
             ->and($e->reason())->toBe('must be valid UTF-8 text without control characters');
     });
-})->with(['latin-1' => "Caf\xE9", 'nul byte' => "a\0b", 'line feed' => "a\nb"]);
+})->with(['latin-1' => "Caf\xE9", 'nul byte' => "a\0b", 'line feed' => "a\nb", 'delete' => "a\x7Fb", 'c1 next line' => "a\u{0085}b"]);
+
+it('accepts ordinary text with accented letters', function (): void {
+    expect(ProductName::fromString('Café crème àéîõü')->value())->toBe('Café crème àéîõü');
+});
