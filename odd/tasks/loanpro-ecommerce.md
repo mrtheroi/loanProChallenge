@@ -147,9 +147,16 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
     - Laravel 13 already regenerates the session on login.
     - The stock `GET /api/user` route from `install:api` is still present (a candidate for removal).
   - Consolidated native review (base `666e328`; covers T04, T05, the pg_trgm fix and T06): medium, 1,844 lines, consent granted, one lens (reliability), **approved** and acknowledged (lineage `review-7d1107ccb9268002`). The reviewed boundary is now `f47b518`. Advisory notes:
-    - Stock and weight are bounded only by `PHP_INT_MAX`, but the columns are int32 (also raised by Codex on PR #3).
-    - Soft-deleted categories break both repository paths.
-    - `role:` with a mistyped parameter returns a 500.
+    - All three notes are RESOLVED by the root-cause pass below: stock and weight are now bounded to int32; categories no longer use soft deletes; a mistyped `role:` parameter now returns 403.
+  - Root-cause pass (2026-10-16), triggered by repeated Codex findings on PRs #3 and #4 (decision record: Obsidian `Decisiones/2026-10-16-correccion-por-causa-raiz.md`):
+    - Cause 1, states the product never creates: category soft deletes removed.
+    - Cause 2, infrastructure errors leaking: `SkuIsReserved` (including a race), registration unique race returns 422, an array email on login returns 422, invalid UTF-8 or NUL in text returns a domain error or 422.
+    - Cause 3, domain/DB parity: column-by-column audit plus a max-value round-trip test, int casts, CHECKs for blank or padded name, `users_role_valid`, and `products_sku_format`.
+    - Cause 4, normalization: NFC, Unicode trim and whitespace collapse for categories; emails lowercased at the boundary plus a unique index on `lower(email)`; SKUs restricted to `[A-Z0-9._-]` and stored uppercase (user decision).
+    - Cause 5, fail-open: role middleware fails closed; demo seeders allowlisted to local/testing inside each seeder; per-IP throttles on register and login; a real 419 CSRF test; stock `GET /api/user` removed.
+    - Commits on feat/03: `9124f67`, `357987d`, `683d142`. Commits on feat/04: `981445c`, `9c4d429`, `4e0b81d`. Full suite: 230 tests / 519 assertions.
+    - Consolidated native review over PRs #3 and #4 (67 files, 2,535 lines): medium, consent granted, **approved** and acknowledged (lineage `review-5e56a3d82f7e71d7`). Remaining suggestion: demo seeders match the email exactly; a hand-inserted mixed-case demo email would collide with the `lower(email)` index (accepted, because the boundary always lowercases).
+    - Accepted trade-offs: register reveals existing emails (mitigated by the per-IP throttle); Laravel 13 accepts `Sec-Fetch-Site: same-origin` without a token; repository `save()` is last-write-wins (T07 create must reject existing SKUs); a real two-connection race test is deferred to T11.
 - [ ] T07 Catalog API: admin-only CRUD, category find-or-create, soft delete, reserved SKU error. Route: D. Check: feature tests.
 - [ ] T08 Search API: free text, filters, sorting, pagination. Route: D. Check: feature tests.
 - [ ] T09 Import: CSV reader, row validation, in-file duplicate detection, name-guarded upsert, per-row report endpoint. Route: D. Check: unit + feature tests, including the sample CSV traps.
