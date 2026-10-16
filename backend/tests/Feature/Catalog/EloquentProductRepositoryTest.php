@@ -230,3 +230,34 @@ it('refuses to delete an unknown or already deleted product', function (bool $pr
 
     expect(ProductModel::withTrashed()->get()->toArray())->toBe($before);
 })->with(['unknown' => [false], 'already deleted' => [true]]);
+
+it('updates a live product in place', function (): void {
+    productRepository()->add(aPersistableProduct());
+
+    productRepository()->update(aPersistableProduct(sku: 'sku-001', name: 'Renamed', category: 'Accessories', price: '5.00', stock: 2, weight: ''));
+
+    expect(productRepository()->findBySku(Sku::fromString('SKU-001')))
+        ->toEqual(aPersistableProduct(name: 'Renamed', category: 'Accessories', price: '5.00', stock: 2, weight: ''))
+        ->and(ProductModel::withTrashed()->count())->toBe(1);
+});
+
+it('refuses to update an unknown sku and never inserts it', function (): void {
+    productRepository()->add(aPersistableProduct(sku: 'OTHER-1'));
+    $before = ProductModel::withTrashed()->count();
+
+    expect(fn () => productRepository()->update(aPersistableProduct()))->toThrow(ProductNotFound::class, 'SKU-001');
+
+    expect(ProductModel::withTrashed()->count())->toBe($before)
+        ->and(ProductModel::withTrashed()->where('sku', 'SKU-001')->exists())->toBeFalse();
+});
+
+it('refuses to update a soft-deleted sku and leaves the trashed row untouched', function (): void {
+    productRepository()->add(aPersistableProduct());
+    productRepository()->delete(Sku::fromString('SKU-001'));
+    $before = ProductModel::withTrashed()->get()->toArray();
+
+    expect(fn () => productRepository()->update(aPersistableProduct(name: 'Revived', price: '1.00')))
+        ->toThrow(ProductNotFound::class, 'SKU-001');
+
+    expect(ProductModel::withTrashed()->get()->toArray())->toBe($before);
+});

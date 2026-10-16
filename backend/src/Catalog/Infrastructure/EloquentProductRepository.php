@@ -56,6 +56,17 @@ final class EloquentProductRepository implements ProductRepository
         }
     }
 
+    public function update(Product $product): void
+    {
+        DB::transaction(function () use ($product): void {
+            $affected = ProductModel::query()->where('sku', $product->sku()->value())->update($this->attributes($product));
+
+            if ($affected === 0) {
+                throw ProductNotFound::bySku($product->sku()->value());
+            }
+        });
+    }
+
     public function findBySku(Sku $sku): ?Product
     {
         $model = ProductModel::query()->with('category')->where('sku', $sku->value())->first();

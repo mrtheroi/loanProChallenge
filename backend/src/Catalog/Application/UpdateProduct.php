@@ -10,18 +10,18 @@ use Ecommerce\Catalog\Domain\ProductRepository;
 
 final readonly class UpdateProduct
 {
-    public function __construct(private ProductRepository $products, private GetProduct $getProduct) {}
+    public function __construct(private ProductRepository $products) {}
 
     public function handle(string $sku, ProductData $data): Product
     {
-        $existing = $this->getProduct->handle($sku);
+        $pathSku = ExistingSku::parse($sku);
         $product = $data->toProduct();
 
-        if (! $product->sku()->equals($existing->sku())) {
+        if (! $product->sku()->equals($pathSku)) {
             throw InvalidProductAttribute::because('sku', 'must match the sku of the product being updated');
         }
 
-        $this->products->save($product);
+        $this->products->update($product);
 
         return $product;
     }

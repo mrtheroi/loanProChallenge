@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Ecommerce\Catalog\Domain\ProductRepository;
 use Ecommerce\Catalog\Domain\Sku;
+use Ecommerce\Catalog\Infrastructure\CategoryModel;
 use Ecommerce\Catalog\Infrastructure\ProductModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Catalog\AdminCatalog;
@@ -106,3 +107,15 @@ it('rejects invalid content and wrong json types on update without changing the 
     'negative stock string' => ['stock', '-3'],
     'sku as null' => ['sku', null],
 ]);
+
+it('returns 404 when the product is deleted while the update is in flight', function (): void {
+    CategoryModel::creating(function (): void {
+        ProductModel::query()->where('sku', 'WM-001')->delete();
+    });
+
+    $this->actingAs($this->admin)
+        ->putJson('/api/admin/products/WM-001', updatedProductPayload())
+        ->assertNotFound();
+
+    expect(ProductModel::withTrashed()->sole()->name)->toBe('Wireless Mouse');
+});
