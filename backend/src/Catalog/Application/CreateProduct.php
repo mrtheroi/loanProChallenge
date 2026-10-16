@@ -13,9 +13,6 @@ final readonly class CreateProduct
 
     public function handle(ProductData $data): Product
     {
-        $product = $data->toProduct();
-        $this->products->add($product);
-
-        return $product;
+        return $this->products->add($data->toProduct());
     }
 }

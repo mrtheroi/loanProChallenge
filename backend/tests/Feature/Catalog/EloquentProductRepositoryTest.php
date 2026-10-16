@@ -190,6 +190,14 @@ it('adds a new product that can be found by sku', function (): void {
     expect(productRepository()->findBySku(Sku::fromString('SKU-001')))->toEqual(aPersistableProduct());
 });
 
+it('returns the added product with the canonical name of an existing category', function (): void {
+    productRepository()->add(aPersistableProduct(sku: 'SKU-001', category: 'Electronics'));
+
+    $added = productRepository()->add(aPersistableProduct(sku: 'SKU-002', category: ' electronics '));
+
+    expect($added)->toEqual(aPersistableProduct(sku: 'SKU-002', category: 'Electronics'));
+});
+
 it('refuses to add a sku held by a live product and keeps the existing product', function (): void {
     productRepository()->add(aPersistableProduct(name: 'Original'));
 
@@ -239,6 +247,15 @@ it('updates a live product in place', function (): void {
     expect(productRepository()->findBySku(Sku::fromString('SKU-001')))
         ->toEqual(aPersistableProduct(name: 'Renamed', category: 'Accessories', price: '5.00', stock: 2, weight: ''))
         ->and(ProductModel::withTrashed()->count())->toBe(1);
+});
+
+it('returns the updated product with the canonical name of an existing category', function (): void {
+    productRepository()->add(aPersistableProduct(sku: 'SKU-001', category: 'Electronics'));
+    productRepository()->add(aPersistableProduct(sku: 'SKU-002', category: 'Accessories'));
+
+    $updated = productRepository()->update(aPersistableProduct(sku: 'SKU-002', category: ' electronics '));
+
+    expect($updated)->toEqual(aPersistableProduct(sku: 'SKU-002', category: 'Electronics'));
 });
 
 it('refuses to update an unknown sku and never inserts it', function (): void {

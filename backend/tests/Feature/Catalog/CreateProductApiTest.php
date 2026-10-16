@@ -27,6 +27,18 @@ it('creates a product and returns it with a normalized sku', function (): void {
     expect(app(ProductRepository::class)->findBySku(Sku::fromString('WM-001'))?->name()->value())->toBe('Wireless Mouse');
 });
 
+it('responds with the canonical name of an existing category and matches a later read', function (): void {
+    $this->actingAs(AdminCatalog::admin())
+        ->postJson('/api/admin/products', AdminCatalog::payload(['sku' => 'kb-001', 'category' => 'Electronics']))
+        ->assertCreated();
+
+    $created = $this->postJson('/api/admin/products', AdminCatalog::payload(['category' => 'electronics']))
+        ->assertCreated()
+        ->assertJsonPath('data.category', 'Electronics');
+
+    $this->getJson('/api/admin/products/wm-001')->assertOk()->assertExactJson($created->json());
+});
+
 it('rejects content the domain refuses with a 422 on the offending field', function (string $field, mixed $value, string $reason): void {
     $this->actingAs(AdminCatalog::admin())
         ->postJson('/api/admin/products', AdminCatalog::payload([$field => $value]))

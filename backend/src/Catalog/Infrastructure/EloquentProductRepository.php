@@ -20,11 +20,13 @@ use Illuminate\Support\Facades\DB;
 
 final class EloquentProductRepository implements ProductRepository
 {
-    public function add(Product $product): void
+    public function add(Product $product): Product
     {
         try {
-            DB::transaction(function () use ($product): void {
-                ProductModel::query()->create(['sku' => $product->sku()->value(), ...$this->attributes($product)]);
+            return DB::transaction(function () use ($product): Product {
+                $model = ProductModel::query()->create(['sku' => $product->sku()->value(), ...$this->attributes($product)]);
+
+                return $this->toDomain($model);
             });
         } catch (UniqueConstraintViolationException $exception) {
             if ($exception->index === 'products_sku_unique') {
@@ -56,14 +58,16 @@ final class EloquentProductRepository implements ProductRepository
         }
     }
 
-    public function update(Product $product): void
+    public function update(Product $product): Product
     {
-        DB::transaction(function () use ($product): void {
+        return DB::transaction(function () use ($product): Product {
             $affected = ProductModel::query()->where('sku', $product->sku()->value())->update($this->attributes($product));
 
             if ($affected === 0) {
                 throw ProductNotFound::bySku($product->sku()->value());
             }
+
+            return $this->toDomain(ProductModel::query()->with('category')->where('sku', $product->sku()->value())->firstOrFail());
         });
     }
 
@@ -75,15 +79,7 @@ final class EloquentProductRepository implements ProductRepository
             return null;
         }
 
-        return Product::create(
-            Sku::fromString($model->sku),
-            ProductName::fromString($model->name),
-            $model->description,
-            CategoryName::fromString($model->category->name),
-            Money::fromCents($model->price_cents),
-            Stock::from($model->stock),
-            $model->weight_grams === null ? null : Weight::fromGrams($model->weight_grams),
-        );
+        return $this->toDomain($model);
     }
 
     public function delete(Sku $sku): void
@@ -109,5 +105,18 @@ final class EloquentProductRepository implements ProductRepository
             'stock' => $product->stock()->quantity(),
             'weight_grams' => $product->weight()?->grams(),
         ];
+    }
+
+    private function toDomain(ProductModel $model): Product
+    {
+        return Product::create(
+            Sku::fromString($model->sku),
+            ProductName::fromString($model->name),
+            $model->description,
+            CategoryName::fromString($model->category->name),
+            Money::fromCents($model->price_cents),
+            Stock::from($model->stock),
+            $model->weight_grams === null ? null : Weight::fromGrams($model->weight_grams),
+        );
     }
 }

@@ -6,11 +6,11 @@ namespace Ecommerce\Catalog\Domain;
 
 interface ProductRepository
 {
-    public function add(Product $product): void;
+    public function add(Product $product): Product;
 
     public function save(Product $product): void;
 
-    public function update(Product $product): void;
+    public function update(Product $product): Product;
 
     public function findBySku(Sku $sku): ?Product;
 

@@ -52,6 +52,18 @@ it('replaces every editable field, including the name', function (): void {
         ->and(ProductModel::withTrashed()->count())->toBe(1);
 });
 
+it('responds to an update with the canonical name of an existing category and matches a later read', function (): void {
+    $this->actingAs($this->admin)
+        ->postJson('/api/admin/products', AdminCatalog::payload(['sku' => 'kb-001', 'category' => 'Accessories']))
+        ->assertCreated();
+
+    $updated = $this->putJson('/api/admin/products/wm-001', updatedProductPayload(['category' => ' accessories ']))
+        ->assertOk()
+        ->assertJsonPath('data.category', 'Accessories');
+
+    $this->getJson('/api/admin/products/wm-001')->assertOk()->assertExactJson($updated->json());
+});
+
 it('refuses to change the sku and leaves the product untouched', function (string $bodySku): void {
     $before = ProductModel::withTrashed()->get()->toArray();
 

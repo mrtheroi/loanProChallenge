@@ -21,8 +21,6 @@ final readonly class UpdateProduct
             throw InvalidProductAttribute::because('sku', 'must match the sku of the product being updated');
         }
 
-        $this->products->update($product);
-
-        return $product;
+        return $this->products->update($product);
     }
 }
