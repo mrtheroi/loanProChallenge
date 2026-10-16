@@ -110,6 +110,36 @@ it('throttles by the trimmed email even without the global trim middleware', fun
         ->assertTooManyRequests();
 });
 
+it('rejects a password longer than 72 bytes even when its first 72 bytes match', function (): void {
+    $password = str_repeat('a', 72);
+    User::factory()->create(['email' => 'long@example.com', 'password' => $password]);
+
+    $this->postJson('/api/auth/login', ['email' => 'long@example.com', 'password' => $password.'suffix'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['password']);
+
+    $this->assertGuest('web');
+});
+
+it('logs in with a password of exactly 72 bytes', function (): void {
+    $password = str_repeat('a', 72);
+    User::factory()->create(['email' => 'long@example.com', 'password' => $password]);
+
+    $this->postJson('/api/auth/login', ['email' => 'long@example.com', 'password' => $password])
+        ->assertOk()
+        ->assertJsonPath('data.email', 'long@example.com');
+});
+
+it('rejects a login password containing a NUL byte with a validation error', function (): void {
+    loginTestAdmin();
+
+    $this->postJson('/api/auth/login', ['email' => 'admin@example.com', 'password' => "correct\0password"])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['password']);
+
+    $this->assertGuest('web');
+});
+
 it('rejects a non-string email with a validation error', function (): void {
     $this->postJson('/api/auth/login', ['email' => ['a'], 'password' => 'x'])
         ->assertUnprocessable()

@@ -81,6 +81,26 @@ it('accepts a password of exactly 72 bytes', function (): void {
         ->assertCreated();
 });
 
+it('rejects a password containing a NUL byte without creating a user', function (): void {
+    $password = "secret\0password";
+
+    $this->postJson('/api/auth/register', registerPayload(['password' => $password, 'password_confirmation' => $password]))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['password']);
+
+    expect(User::query()->count())->toBe(0);
+});
+
+it('rejects a password that is not valid UTF-8 without creating a user', function (): void {
+    $password = 'secret-password'.urldecode('%FF');
+
+    $this->post('/api/auth/register', registerPayload(['password' => $password, 'password_confirmation' => $password]), ['Accept' => 'application/json'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['password']);
+
+    expect(User::query()->count())->toBe(0);
+});
+
 it('returns the email validation error when a concurrent registration takes the email first', function (): void {
     User::creating(function (User $user): void {
         DB::table('users')->insert([

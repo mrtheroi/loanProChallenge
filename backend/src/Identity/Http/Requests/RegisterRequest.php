@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ecommerce\Identity\Http\Requests;
 
 use Closure;
+use Ecommerce\Identity\Http\Rules\BcryptCompatiblePassword;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
 
@@ -32,11 +33,7 @@ final class RegisterRequest extends FormRequest
                 'string',
                 'confirmed',
                 Password::min(8),
-                function (string $attribute, mixed $value, Closure $fail): void {
-                    if (is_string($value) && strlen($value) > 72) {
-                        $fail("The {$attribute} field must not be greater than 72 bytes.");
-                    }
-                },
+                new BcryptCompatiblePassword,
             ],
         ];
     }
