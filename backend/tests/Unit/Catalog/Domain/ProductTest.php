@@ -55,7 +55,11 @@ it('rejects a description that is not valid UTF-8 or contains control characters
         expect($e->field())->toBe('description')
             ->and($e->reason())->toBe('must be valid UTF-8 text without control characters');
     });
-})->with(['latin-1' => "Caf\xE9", 'nul byte' => "a\0b", 'escape' => "a\x1Bb"]);
+})->with(['latin-1' => "Caf\xE9", 'nul byte' => "a\0b", 'escape' => "a\x1Bb", 'delete' => "a\x7Fb", 'c1 next line' => "a\u{0085}b"]);
+
+it('accepts a description with accented letters', function (): void {
+    expect(aProduct(description: 'Café crème àéîõü')->description())->toBe('Café crème àéîõü');
+});
 
 it('keeps tabs, line feeds and carriage returns inside the description', function (): void {
     expect(aProduct(description: "Line one\r\n\tLine two")->description())->toBe("Line one\r\n\tLine two");

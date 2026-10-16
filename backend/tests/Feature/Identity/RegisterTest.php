@@ -125,7 +125,15 @@ it('rejects a name that is not valid UTF-8 text', function (string $name): void 
 })->with([
     'invalid UTF-8 byte' => [urldecode('%FF')],
     'NUL byte' => ["Ada\0Buyer"],
+    'DEL control' => ["Ada\x7FBuyer"],
+    'C1 control' => ["Ada\u{0085}Buyer"],
 ]);
+
+it('accepts a name with accented letters', function (): void {
+    $this->postJson('/api/auth/register', registerPayload(['name' => 'Adélaïde Núñez']))
+        ->assertCreated()
+        ->assertJsonPath('data.name', 'Adélaïde Núñez');
+});
 
 it('throttles the eleventh registration attempt within a minute from the same ip', function (): void {
     foreach (range(1, 10) as $attempt) {
@@ -136,3 +144,22 @@ it('throttles the eleventh registration attempt within a minute from the same ip
 
     expect(User::query()->count())->toBe(0);
 });
+
+it('refuses a registration that does not come from the first-party spa origin', function (?string $referer): void {
+    $this->withoutHeader('Referer');
+
+    if ($referer !== null) {
+        $this->withHeader('Referer', $referer);
+    }
+
+    $this->postJson('/api/auth/register', registerPayload())
+        ->assertForbidden()
+        ->assertExactJson(['message' => 'Authentication requires the first-party SPA origin.'])
+        ->assertCookieMissing(config('session.cookie'));
+
+    $this->assertGuest('web');
+    expect(User::query()->count())->toBe(0);
+})->with([
+    'no origin' => [null],
+    'foreign origin' => ['https://evil.example'],
+]);

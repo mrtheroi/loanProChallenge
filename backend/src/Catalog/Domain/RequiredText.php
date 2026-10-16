@@ -17,7 +17,7 @@ final class RequiredText
         $trimmed = (string) preg_replace('/^\s+|\s+$/u', '', $value);
         $trimmed = (string) Normalizer::normalize($trimmed, Normalizer::FORM_C);
 
-        if (preg_match('/[\x00-\x1F]/', $trimmed) === 1) {
+        if (preg_match('/\p{Cc}/u', $trimmed) === 1) {
             throw self::invalidText($field);
         }
 

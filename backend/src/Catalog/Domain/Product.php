@@ -27,7 +27,7 @@ final readonly class Product
     ): self {
         $description = trim($description ?? '');
 
-        if (! mb_check_encoding($description, 'UTF-8') || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $description) === 1) {
+        if (! mb_check_encoding($description, 'UTF-8') || preg_match('/(?![\t\n\r])\p{Cc}/u', $description) === 1) {
             throw InvalidProductAttribute::because('description', 'must be valid UTF-8 text without control characters');
         }
 

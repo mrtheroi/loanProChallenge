@@ -112,3 +112,22 @@ it('throttles one ip that sprays login attempts across many emails', function ()
     $this->postJson('/api/auth/login', ['email' => 'user21@example.com', 'password' => 'wrong-password'])
         ->assertTooManyRequests();
 });
+
+it('refuses a login that does not come from the first-party spa origin', function (?string $referer): void {
+    loginTestAdmin();
+    $this->withoutHeader('Referer');
+
+    if ($referer !== null) {
+        $this->withHeader('Referer', $referer);
+    }
+
+    $this->postJson('/api/auth/login', ['email' => 'admin@example.com', 'password' => 'correct-password'])
+        ->assertForbidden()
+        ->assertExactJson(['message' => 'Authentication requires the first-party SPA origin.'])
+        ->assertCookieMissing(config('session.cookie'));
+
+    $this->assertGuest('web');
+})->with([
+    'no origin' => [null],
+    'foreign origin' => ['https://evil.example'],
+]);

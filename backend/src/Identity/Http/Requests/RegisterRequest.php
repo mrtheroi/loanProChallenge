@@ -21,7 +21,7 @@ final class RegisterRequest extends FormRequest
                 'string',
                 'max:255',
                 function (string $attribute, mixed $value, Closure $fail): void {
-                    if (is_string($value) && (! mb_check_encoding($value, 'UTF-8') || preg_match('/[\x00-\x1F]/', $value) === 1)) {
+                    if (is_string($value) && (! mb_check_encoding($value, 'UTF-8') || preg_match('/\p{Cc}/u', $value) === 1)) {
                         $fail("The {$attribute} field must be valid text without control characters.");
                     }
                 },
