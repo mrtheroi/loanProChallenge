@@ -30,3 +30,13 @@ it('normalizes to the lowercase trimmed form', function (string $input, string $
     'already lowercase' => ['electronics', 'electronics'],
     'multibyte uppercase' => [' ÉLECTRONIQUE ', 'électronique'],
 ]);
+
+it('rejects a name whose lowercase form exceeds 100 characters', function (): void {
+    expect(fn () => CategoryName::fromString(str_repeat('İ', 100)))->toThrow(function (InvalidProductAttribute $e): void {
+        expect($e->field())->toBe('category');
+    });
+});
+
+it('accepts a name whose lowercase form is exactly 100 characters', function (): void {
+    expect(mb_strlen(CategoryName::fromString(str_repeat('İ', 50))->normalized()))->toBe(100);
+});

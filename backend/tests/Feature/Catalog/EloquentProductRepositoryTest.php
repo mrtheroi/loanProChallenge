@@ -99,3 +99,12 @@ it('keeps the sku of a soft-deleted product reserved at the database level', fun
         'stock' => 1,
     ]))->toThrow(UniqueConstraintViolationException::class);
 });
+
+it('round-trips the int32 maximum for stock and weight grams', function (): void {
+    productRepository()->save(aPersistableProduct(stock: 2147483647, weight: '2147483.647'));
+
+    $found = productRepository()->findBySku(Sku::fromString('SKU-001'));
+
+    expect($found?->stock()->quantity())->toBe(2147483647)
+        ->and($found?->weight()?->grams())->toBe(2147483647);
+});

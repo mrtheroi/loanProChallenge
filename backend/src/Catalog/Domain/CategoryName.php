@@ -12,7 +12,16 @@ final readonly class CategoryName
 
     public static function fromString(string $value): self
     {
-        return new self(RequiredText::from('category', $value, self::MAX_LENGTH));
+        $name = RequiredText::from('category', $value, self::MAX_LENGTH);
+
+        if (mb_strlen(mb_strtolower($name)) > self::MAX_LENGTH) {
+            throw InvalidProductAttribute::because(
+                'category',
+                sprintf('must not exceed %d characters when lowercased', self::MAX_LENGTH),
+            );
+        }
+
+        return new self($name);
     }
 
     public function value(): string

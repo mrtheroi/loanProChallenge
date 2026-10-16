@@ -6,6 +6,8 @@ namespace Ecommerce\Catalog\Domain;
 
 final readonly class Stock
 {
+    private const int MAX = 2147483647;
+
     private function __construct(private int $quantity) {}
 
     public static function from(int|string $value): self
@@ -18,8 +20,8 @@ final readonly class Stock
 
         $quantity = filter_var(ltrim($trimmed, '0') ?: '0', FILTER_VALIDATE_INT);
 
-        if ($quantity === false) {
-            throw InvalidProductAttribute::because('stock', 'is too large');
+        if ($quantity === false || $quantity > self::MAX) {
+            throw InvalidProductAttribute::because('stock', sprintf('must be at most %d', self::MAX));
         }
 
         return new self($quantity);

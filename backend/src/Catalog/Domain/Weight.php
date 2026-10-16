@@ -8,11 +8,13 @@ final readonly class Weight
 {
     private const int DECIMALS = 3;
 
+    private const int MAX_GRAMS = 2147483647;
+
     private function __construct(private int $grams) {}
 
     public static function fromDecimalString(string $value): self
     {
-        return new self(ScaledDecimal::parse('weight_kg', $value, self::DECIMALS));
+        return self::fromGrams(ScaledDecimal::parse('weight_kg', $value, self::DECIMALS));
     }
 
     public static function fromOptionalDecimalString(string $value): ?self
@@ -24,6 +26,10 @@ final readonly class Weight
     {
         if ($grams < 0) {
             throw InvalidProductAttribute::because('weight_kg', 'must not be negative');
+        }
+
+        if ($grams > self::MAX_GRAMS) {
+            throw InvalidProductAttribute::because('weight_kg', sprintf('must be at most %d grams', self::MAX_GRAMS));
         }
 
         return new self($grams);

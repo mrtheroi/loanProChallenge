@@ -14,6 +14,7 @@ it('stores kilograms as integer grams', function (string $input, int $grams): vo
     'small fraction' => ['0.03', 30],
     'three decimals' => ['1.234', 1234],
     'surrounding whitespace' => [' 2 ', 2000],
+    'int32 grams maximum' => ['2147483.647', 2147483647],
 ]);
 
 it('rejects anything that is not a non-negative decimal with at most 3 decimals', function (string $input): void {
@@ -59,4 +60,18 @@ it('rebuilds a weight from persisted integer grams', function (): void {
 
 it('rejects negative persisted grams', function (): void {
     expect(fn () => Weight::fromGrams(-1))->toThrow(InvalidProductAttribute::class);
+});
+
+it('rejects decimal weights above the int32 grams maximum', function (): void {
+    expect(fn () => Weight::fromDecimalString('2147483.648'))->toThrow(function (InvalidProductAttribute $e): void {
+        expect($e->field())->toBe('weight_kg')
+            ->and($e->reason())->toBe('must be at most 2147483647 grams');
+    });
+});
+
+it('rejects persisted grams above the int32 maximum', function (): void {
+    expect(fn () => Weight::fromGrams(2147483648))->toThrow(function (InvalidProductAttribute $e): void {
+        expect($e->field())->toBe('weight_kg')
+            ->and($e->reason())->toBe('must be at most 2147483647 grams');
+    });
 });
