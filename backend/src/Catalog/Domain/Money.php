@@ -15,6 +15,15 @@ final readonly class Money
         return new self(ScaledDecimal::parse('price', $value, self::DECIMALS));
     }
 
+    public static function fromCents(int $cents): self
+    {
+        if ($cents < 0) {
+            throw InvalidProductAttribute::because('price', 'must not be negative');
+        }
+
+        return new self($cents);
+    }
+
     public function cents(): int
     {
         return $this->cents;

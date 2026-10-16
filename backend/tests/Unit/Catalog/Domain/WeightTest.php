@@ -52,3 +52,11 @@ it('builds a weight from non-blank optional input', function (): void {
 it('still rejects invalid non-blank optional input', function (): void {
     expect(fn () => Weight::fromOptionalDecimalString('-1'))->toThrow(InvalidProductAttribute::class);
 });
+
+it('rebuilds a weight from persisted integer grams', function (): void {
+    expect(Weight::fromGrams(1250)->toKilogramString())->toBe('1.250');
+});
+
+it('rejects negative persisted grams', function (): void {
+    expect(fn () => Weight::fromGrams(-1))->toThrow(InvalidProductAttribute::class);
+});

@@ -126,7 +126,15 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
   - Domain: `Sku`, `ProductName`, `CategoryName` (with `normalized()`), `Money` (integer cents, no floats), `Stock`, `Weight` (integer grams, optional), `Product`, and `InvalidProductAttribute(field, reason)`. Shared helpers: `RequiredText` and `ScaledDecimal`.
   - Assumptions: SKU equality is case-sensitive; max lengths are 64, 255 and 100 characters (`mb_strlen`); weight has up to 3 decimals; overflow is rejected as "is too large"; `+5`, `1e3`, `.99`, `29.` and decimal commas are rejected; leading zeros are accepted.
   - Checks: pest unit 97 tests / 174 assertions (the parent re-ran it as a spot check); phpstan level 9 reported 0 errors; pint passed; there are no `Illuminate` references in the domain.
-- [ ] T05 Catalog persistence: products/categories migrations (unique sku that includes deleted rows, soft deletes, pg_trgm indexes), Eloquent repository and mapping. Route: D. Check: Pest feature tests against Postgres.
+- [x] T05 Catalog persistence: products/categories migrations (unique sku that includes deleted rows, soft deletes, pg_trgm indexes), Eloquent repository and mapping. Route: D. Check: Pest feature tests against Postgres.
+  - Route: delegated writer (3 migrations, port, 2 models, repository, provider, tests).
+  - Built: `ProductRepository` port (`save` = upsert by SKU inside a transaction; `findBySku` excludes soft-deleted rows), `EloquentProductRepository`, `CatalogServiceProvider`, and `Money::fromCents` / `Weight::fromGrams` (both reject negatives).
+  - Schema: `pg_trgm` extension; `categories` with a unique `normalized_name`; `products` with a plain unique `sku` that also covers deleted rows (the reservation is proven by a raw insert), named CHECK constraints on price, stock and weight (proven by raw inserts), and 3 trigram GIN indexes.
+  - Checks: the full suite passed in the container, 115 tests / 204 assertions (the parent re-ran it); `migrate:fresh`, rollback and migrate ran clean; phpstan level 9 reported 0 errors; pint passed; the domain is framework-free.
+  - Notes for T07:
+    - Saving a SKU of a soft-deleted product currently surfaces as `UniqueConstraintViolationException`; T07 must map it to the domain error "SKU belongs to a deleted product".
+    - Soft-deleted categories are not handled.
+    - The transaction rollback is untested, and concurrent saves are untested.
 - [ ] T06 Identity: Sanctum SPA, register/login/logout/me, admin and buyer roles, policies, demo seeders. Route: D. Check: feature tests for auth and role access.
 - [ ] T07 Catalog API: admin-only CRUD, category find-or-create, soft delete, reserved SKU error. Route: D. Check: feature tests.
 - [ ] T08 Search API: free text, filters, sorting, pagination. Route: D. Check: feature tests.

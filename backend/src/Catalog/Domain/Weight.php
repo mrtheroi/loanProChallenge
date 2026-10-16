@@ -20,6 +20,15 @@ final readonly class Weight
         return trim($value) === '' ? null : self::fromDecimalString($value);
     }
 
+    public static function fromGrams(int $grams): self
+    {
+        if ($grams < 0) {
+            throw InvalidProductAttribute::because('weight_kg', 'must not be negative');
+        }
+
+        return new self($grams);
+    }
+
     public function grams(): int
     {
         return $this->grams;

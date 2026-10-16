@@ -57,3 +57,11 @@ it('rejects amounts too large to store as integer cents', function (string $inpu
     'whole part overflows' => '99999999999999999999',
     'cents overflow' => '92233720368547758.08',
 ]);
+
+it('rebuilds money from persisted integer cents', function (): void {
+    expect(Money::fromCents(8999)->toDecimalString())->toBe('89.99');
+});
+
+it('rejects negative persisted cents', function (): void {
+    expect(fn () => Money::fromCents(-1))->toThrow(InvalidProductAttribute::class);
+});

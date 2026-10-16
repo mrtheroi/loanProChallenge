@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\QueryException;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+
+uses(RefreshDatabase::class);
+
+function insertRawProductRow(array $overrides): void
+{
+    $categoryId = DB::table('categories')->insertGetId(['name' => 'Tools', 'normalized_name' => 'tools']);
+
+    DB::table('products')->insert([
+        'sku' => 'RAW-001',
+        'name' => 'Raw product',
+        'category_id' => $categoryId,
+        'price_cents' => 100,
+        'stock' => 1,
+        'weight_grams' => null,
+        ...$overrides,
+    ]);
+}
+
+it('rejects negative numeric values even when the domain is bypassed', function (string $column): void {
+    expect(fn () => insertRawProductRow([$column => -1]))->toThrow(QueryException::class, "products_{$column}_non_negative");
+})->with(['price_cents', 'stock', 'weight_grams']);
+
+it('accepts a valid raw row', function (): void {
+    insertRawProductRow(['price_cents' => 0, 'stock' => 0, 'weight_grams' => 0]);
+
+    expect(DB::table('products')->count())->toBe(1);
+});
+
+it('enables pg_trgm and indexes name, sku and description with trigram GIN indexes', function (): void {
+    $extension = DB::table('pg_extension')->where('extname', 'pg_trgm')->exists();
+    $definitions = DB::table('pg_indexes')->where('tablename', 'products')->pluck('indexdef');
+
+    expect($extension)->toBeTrue();
+
+    foreach (['name', 'sku', 'description'] as $column) {
+        expect($definitions->contains(fn (string $definition): bool => str_contains($definition, "USING gin ({$column} gin_trgm_ops)")))
+            ->toBeTrue("missing trigram index on {$column}");
+    }
+});
