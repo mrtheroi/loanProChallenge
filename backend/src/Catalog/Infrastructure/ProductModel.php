@@ -27,6 +27,16 @@ final class ProductModel extends Model
 
     protected $fillable = ['sku', 'name', 'description', 'category_id', 'price_cents', 'stock', 'weight_grams'];
 
+    /** @return array<string, string> */
+    protected function casts(): array
+    {
+        return [
+            'price_cents' => 'integer',
+            'stock' => 'integer',
+            'weight_grams' => 'integer',
+        ];
+    }
+
     /** @return BelongsTo<CategoryModel, $this> */
     public function category(): BelongsTo
     {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 uses(RefreshDatabase::class);
 
@@ -51,4 +52,8 @@ it('keeps the pg_trgm extension installed when its migration is rolled back', fu
     $migration->down();
 
     expect(DB::table('pg_extension')->where('extname', 'pg_trgm')->exists())->toBeTrue();
+});
+
+it('does not soft delete categories', function (): void {
+    expect(Schema::hasColumn('categories', 'deleted_at'))->toBeFalse();
 });

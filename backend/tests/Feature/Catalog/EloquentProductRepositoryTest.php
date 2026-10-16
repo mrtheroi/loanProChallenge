@@ -8,6 +8,7 @@ use Ecommerce\Catalog\Domain\Product;
 use Ecommerce\Catalog\Domain\ProductName;
 use Ecommerce\Catalog\Domain\ProductRepository;
 use Ecommerce\Catalog\Domain\Sku;
+use Ecommerce\Catalog\Domain\SkuIsReserved;
 use Ecommerce\Catalog\Domain\Stock;
 use Ecommerce\Catalog\Domain\Weight;
 use Ecommerce\Catalog\Infrastructure\CategoryModel;
@@ -107,4 +108,55 @@ it('round-trips the int32 maximum for stock and weight grams', function (): void
 
     expect($found?->stock()->quantity())->toBe(2147483647)
         ->and($found?->weight()?->grams())->toBe(2147483647);
+});
+
+it('refuses to save the sku of a soft-deleted product and leaves the deleted row untouched', function (): void {
+    productRepository()->save(aPersistableProduct());
+    ProductModel::query()->where('sku', 'SKU-001')->firstOrFail()->delete();
+    $before = ProductModel::withTrashed()->where('sku', 'SKU-001')->firstOrFail()->getAttributes();
+
+    expect(fn () => productRepository()->save(aPersistableProduct(name: 'Replacement', price: '1.00')))
+        ->toThrow(SkuIsReserved::class, 'SKU-001');
+
+    expect(ProductModel::withTrashed()->where('sku', 'SKU-001')->firstOrFail()->getAttributes())->toBe($before)
+        ->and(ProductModel::withTrashed()->count())->toBe(1);
+});
+
+it('reports a reserved sku when a concurrent insert takes the sku first', function (): void {
+    ProductModel::creating(function (ProductModel $product): void {
+        DB::table('products')->insert([
+            'sku' => $product->sku,
+            'name' => 'Concurrent product',
+            'category_id' => $product->category_id,
+            'price_cents' => 100,
+            'stock' => 1,
+        ]);
+    });
+
+    expect(fn () => productRepository()->save(aPersistableProduct()))->toThrow(SkuIsReserved::class, 'SKU-001')
+        ->and(ProductModel::withTrashed()->count())->toBe(0);
+});
+
+it('round-trips every field at its maximum allowed value', function (): void {
+    $product = Product::create(
+        Sku::fromString(str_repeat('S', 64)),
+        ProductName::fromString(str_repeat('ñ', 255)),
+        str_repeat('Long description. ', 5000),
+        CategoryName::fromString(str_repeat('É', 100)),
+        Money::fromCents(PHP_INT_MAX),
+        Stock::from(2147483647),
+        Weight::fromGrams(2147483647),
+    );
+
+    productRepository()->save($product);
+
+    expect(productRepository()->findBySku($product->sku()))->toEqual($product);
+});
+
+it('casts numeric product columns to integers regardless of the driver representation', function (): void {
+    $model = (new ProductModel)->setRawAttributes(['price_cents' => '9223372036854775807', 'stock' => '7', 'weight_grams' => '125']);
+
+    expect($model->price_cents)->toBe(PHP_INT_MAX)
+        ->and($model->stock)->toBe(7)
+        ->and($model->weight_grams)->toBe(125);
 });

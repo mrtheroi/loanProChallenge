@@ -15,7 +15,6 @@ return new class extends Migration
             $table->string('name', 100);
             $table->string('normalized_name', 100)->unique();
             $table->timestamps();
-            $table->softDeletes();
         });
     }
 

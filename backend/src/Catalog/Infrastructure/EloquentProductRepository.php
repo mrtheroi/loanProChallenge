@@ -10,32 +10,46 @@ use Ecommerce\Catalog\Domain\Product;
 use Ecommerce\Catalog\Domain\ProductName;
 use Ecommerce\Catalog\Domain\ProductRepository;
 use Ecommerce\Catalog\Domain\Sku;
+use Ecommerce\Catalog\Domain\SkuIsReserved;
 use Ecommerce\Catalog\Domain\Stock;
 use Ecommerce\Catalog\Domain\Weight;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 final class EloquentProductRepository implements ProductRepository
 {
     public function save(Product $product): void
     {
-        DB::transaction(function () use ($product): void {
-            $category = CategoryModel::query()->firstOrCreate(
-                ['normalized_name' => $product->category()->normalized()],
-                ['name' => $product->category()->value()],
-            );
+        try {
+            DB::transaction(function () use ($product): void {
+                if (ProductModel::onlyTrashed()->where('sku', $product->sku()->value())->exists()) {
+                    throw SkuIsReserved::bySku($product->sku());
+                }
 
-            ProductModel::query()->updateOrCreate(
-                ['sku' => $product->sku()->value()],
-                [
-                    'name' => $product->name()->value(),
-                    'description' => $product->description(),
-                    'category_id' => $category->id,
-                    'price_cents' => $product->price()->cents(),
-                    'stock' => $product->stock()->quantity(),
-                    'weight_grams' => $product->weight()?->grams(),
-                ],
-            );
-        });
+                $category = CategoryModel::query()->firstOrCreate(
+                    ['normalized_name' => $product->category()->normalized()],
+                    ['name' => $product->category()->value()],
+                );
+
+                ProductModel::query()->updateOrCreate(
+                    ['sku' => $product->sku()->value()],
+                    [
+                        'name' => $product->name()->value(),
+                        'description' => $product->description(),
+                        'category_id' => $category->id,
+                        'price_cents' => $product->price()->cents(),
+                        'stock' => $product->stock()->quantity(),
+                        'weight_grams' => $product->weight()?->grams(),
+                    ],
+                );
+            });
+        } catch (UniqueConstraintViolationException $exception) {
+            if ($exception->index === 'products_sku_unique') {
+                throw SkuIsReserved::bySku($product->sku());
+            }
+
+            throw $exception;
+        }
     }
 
     public function findBySku(Sku $sku): ?Product
