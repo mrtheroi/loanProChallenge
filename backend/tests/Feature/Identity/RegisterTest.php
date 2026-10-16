@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use Ecommerce\Identity\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -62,4 +63,36 @@ it('rejects an email that is already registered', function (): void {
     $this->postJson('/api/auth/register', registerPayload())
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['email']);
+});
+
+it('rejects a password longer than 72 bytes', function (string $password): void {
+    $this->postJson('/api/auth/register', registerPayload(['password' => $password, 'password_confirmation' => $password]))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['password']);
+})->with([
+    '73 ascii bytes' => [str_repeat('a', 73)],
+    '40 multibyte characters in 80 bytes' => [str_repeat('é', 40)],
+]);
+
+it('accepts a password of exactly 72 bytes', function (): void {
+    $password = str_repeat('é', 36);
+
+    $this->postJson('/api/auth/register', registerPayload(['password' => $password, 'password_confirmation' => $password]))
+        ->assertCreated();
+});
+
+it('returns the email validation error when a concurrent registration takes the email first', function (): void {
+    User::creating(function (User $user): void {
+        DB::table('users')->insert([
+            'name' => 'Concurrent Buyer',
+            'email' => $user->email,
+            'password' => 'hashed-elsewhere',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    });
+
+    $this->postJson('/api/auth/register', registerPayload())
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['email' => 'The email has already been taken.']);
 });

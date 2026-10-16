@@ -12,7 +12,7 @@ final class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        User::unguarded(fn (): User => User::query()->updateOrCreate(
+        User::unguarded(fn (): User => User::query()->firstOrCreate(
             ['email' => 'admin@example.com'],
             ['name' => 'Demo Admin', 'password' => 'password', 'role' => Role::Admin],
         ));

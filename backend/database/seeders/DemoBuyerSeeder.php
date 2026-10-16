@@ -12,7 +12,7 @@ final class DemoBuyerSeeder extends Seeder
 {
     public function run(): void
     {
-        User::unguarded(fn (): User => User::query()->updateOrCreate(
+        User::unguarded(fn (): User => User::query()->firstOrCreate(
             ['email' => 'buyer@example.com'],
             ['name' => 'Demo Buyer', 'password' => 'password', 'role' => Role::Buyer],
         ));

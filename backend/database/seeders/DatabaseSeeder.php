@@ -11,6 +11,10 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
+        if (app()->environment('production')) {
+            return;
+        }
+
         $this->call([
             AdminUserSeeder::class,
             DemoBuyerSeeder::class,

@@ -50,7 +50,7 @@ Notes:
 
 ### Demo accounts
 
-The seeders create two accounts on every boot (running them again does not duplicate them):
+The seeders run on every boot and create these two accounts only when they are missing. They never modify an existing account (a changed password or role is kept), and they create nothing when `APP_ENV` is `production`:
 
 | Role | Email | Password |
 |------|-------|----------|
