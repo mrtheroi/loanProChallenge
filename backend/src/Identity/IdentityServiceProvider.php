@@ -20,7 +20,7 @@ final class IdentityServiceProvider extends ServiceProvider
             $email = $request->input('email');
 
             return [
-                Limit::perMinute(5)->by(Str::lower(is_string($email) ? $email : '').'|'.$request->ip()),
+                Limit::perMinute(5)->by(Str::lower(trim(is_string($email) ? $email : '')).'|'.$request->ip()),
                 Limit::perMinute(20)->by('ip:'.$request->ip()),
             ];
         });

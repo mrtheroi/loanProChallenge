@@ -145,7 +145,7 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
   - Notes:
     - The session-flow tests use a `BrowserSession` helper that forces database sessions; without it, the same-session test passed even with the cookie removed.
     - Laravel 13 already regenerates the session on login.
-    - The stock `GET /api/user` route from `install:api` is still present (a candidate for removal).
+    - The stock `GET /api/user` route from `install:api` was removed in the root-cause pass (`StockUserRouteTest` asserts 404).
   - Consolidated native review (base `666e328`; covers T04, T05, the pg_trgm fix and T06): medium, 1,844 lines, consent granted, one lens (reliability), **approved** and acknowledged (lineage `review-7d1107ccb9268002`). The reviewed boundary is now `f47b518`. Advisory notes:
     - All three notes are RESOLVED by the root-cause pass below: stock and weight are now bounded to int32; categories no longer use soft deletes; a mistyped `role:` parameter now returns 403.
   - Root-cause pass (2026-10-16), triggered by repeated Codex findings on PRs #3 and #4 (decision record: Obsidian `Decisiones/2026-10-16-correccion-por-causa-raiz.md`):
@@ -156,6 +156,8 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
     - Cause 5, fail-open: role middleware fails closed; demo seeders allowlisted to local/testing inside each seeder; per-IP throttles on register and login; a real 419 CSRF test; stock `GET /api/user` removed.
     - Commits on feat/03: `9124f67`, `357987d`, `683d142`. Commits on feat/04: `981445c`, `9c4d429`, `4e0b81d`. Full suite: 230 tests / 519 assertions.
     - Consolidated native review over PRs #3 and #4 (67 files, 2,535 lines): medium, consent granted, **approved** and acknowledged (lineage `review-5e56a3d82f7e71d7`). Remaining suggestion: demo seeders match the email exactly; a hand-inserted mixed-case demo email would collide with the `lower(email)` index (accepted, because the boundary always lowercases).
+    - Follow-up review on PR #4 after the rebase onto main (lineage `review-df412755db034785`, approved): `\p{Cc}` now defines control characters in the 3 text checks (DEL and C1 included); login and register without a stateful SPA session return 403 instead of a silent 200 (`4ad5f81`). Next review (lineage `review-3d23ef0b2ae57ac2`, approved): the login throttle key now trims as well as lowercases, so it does not depend on the global TrimStrings middleware (proven with a test that disables it).
+    - Accepted: the `lower(email)` unique index migration assumes no existing case-variant duplicates; this is a greenfield database, and the boundary normalizes every new email.
     - Accepted trade-offs: register reveals existing emails (mitigated by the per-IP throttle); Laravel 13 accepts `Sec-Fetch-Site: same-origin` without a token; repository `save()` is last-write-wins (T07 create must reject existing SKUs); a real two-connection race test is deferred to T11.
 - [ ] T07 Catalog API: admin-only CRUD, category find-or-create, soft delete, reserved SKU error. Route: D. Check: feature tests.
 - [ ] T08 Search API: free text, filters, sorting, pagination. Route: D. Check: feature tests.

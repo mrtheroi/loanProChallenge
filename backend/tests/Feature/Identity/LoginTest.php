@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Identity\BrowserSession;
 
@@ -94,6 +95,18 @@ it('throttles login attempts by the normalized email', function (): void {
     }
 
     $this->postJson('/api/auth/login', ['email' => '  Admin@Example.COM ', 'password' => 'correct-password'])
+        ->assertTooManyRequests();
+});
+
+it('throttles by the trimmed email even without the global trim middleware', function (): void {
+    loginTestAdmin();
+    $this->withoutMiddleware(TrimStrings::class);
+
+    foreach (['admin@example.com', ' admin@example.com', 'admin@example.com ', '  admin@example.com', 'admin@example.com  '] as $email) {
+        $this->postJson('/api/auth/login', ['email' => $email, 'password' => 'wrong-password'])->assertUnprocessable();
+    }
+
+    $this->postJson('/api/auth/login', ['email' => ' admin@example.com ', 'password' => 'correct-password'])
         ->assertTooManyRequests();
 });
 
