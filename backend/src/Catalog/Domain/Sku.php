@@ -12,13 +12,13 @@ final readonly class Sku
 
     public static function fromString(string $value): self
     {
-        $canonical = mb_strtoupper(RequiredText::from('sku', $value, self::MAX_LENGTH));
+        $text = RequiredText::from('sku', $value, self::MAX_LENGTH);
 
-        if (mb_strlen($canonical) > self::MAX_LENGTH) {
-            throw InvalidProductAttribute::because('sku', sprintf('must not exceed %d characters', self::MAX_LENGTH));
+        if (preg_match('/^[A-Za-z0-9._-]+$/D', $text) !== 1) {
+            throw InvalidProductAttribute::because('sku', 'must contain only letters A-Z, digits, dashes, underscores and dots');
         }
 
-        return new self($canonical);
+        return new self(strtoupper($text));
     }
 
     public function value(): string

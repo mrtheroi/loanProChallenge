@@ -27,9 +27,8 @@ return new class extends Migration
         DB::statement('ALTER TABLE products ADD CONSTRAINT products_price_cents_non_negative CHECK (price_cents >= 0)');
         DB::statement('ALTER TABLE products ADD CONSTRAINT products_stock_non_negative CHECK (stock >= 0)');
         DB::statement('ALTER TABLE products ADD CONSTRAINT products_weight_grams_non_negative CHECK (weight_grams >= 0)');
-        DB::statement("ALTER TABLE products ADD CONSTRAINT products_sku_trimmed_not_blank CHECK (sku <> '' AND sku !~ '^\\s|\\s$')");
         DB::statement("ALTER TABLE products ADD CONSTRAINT products_name_trimmed_not_blank CHECK (name <> '' AND name !~ '^\\s|\\s$')");
-        DB::statement('ALTER TABLE products ADD CONSTRAINT products_sku_uppercase CHECK (sku = upper(sku))');
+        DB::statement("ALTER TABLE products ADD CONSTRAINT products_sku_format CHECK (sku ~ '^[A-Z0-9._-]+$')");
 
         foreach (['name', 'sku', 'description'] as $column) {
             DB::statement("CREATE INDEX products_{$column}_trgm_index ON products USING gin ({$column} gin_trgm_ops)");

@@ -22,9 +22,9 @@ it('rejects more than 64 characters', function (): void {
     });
 });
 
-it('accepts exactly 64 characters, counting multibyte characters once', function (string $input): void {
-    expect(Sku::fromString($input)->value())->toBe($input);
-})->with(['ascii' => str_repeat('A', 64), 'multibyte' => str_repeat('É', 64)]);
+it('accepts exactly 64 characters', function (): void {
+    expect(Sku::fromString(str_repeat('A', 64))->value())->toBe(str_repeat('A', 64));
+});
 
 it('compares canonical values', function (string $other, bool $expected): void {
     expect(Sku::fromString('KB-001')->equals(Sku::fromString($other)))->toBe($expected);
@@ -50,9 +50,23 @@ it('treats skus that differ only in casing as equal', function (): void {
     expect(Sku::fromString('rs-001')->equals(Sku::fromString('RS-001')))->toBeTrue();
 });
 
-it('rejects a sku whose uppercase form exceeds 64 characters', function (): void {
-    expect(fn () => Sku::fromString(str_repeat('ß', 40)))->toThrow(function (InvalidProductAttribute $e): void {
+it('accepts alphanumeric codes with dashes, underscores and dots', function (string $input, string $expected): void {
+    expect(Sku::fromString($input)->value())->toBe($expected);
+})->with([
+    'letters, digits and dash' => ['AB33-36', 'AB33-36'],
+    'leading digits and suffix' => ['33pl167-b', '33PL167-B'],
+    'underscore and dot' => ['a.b_c-1', 'A.B_C-1'],
+]);
+
+it('rejects characters outside A-Z, 0-9, dash, underscore and dot', function (string $input): void {
+    expect(fn () => Sku::fromString($input))->toThrow(function (InvalidProductAttribute $e): void {
         expect($e->field())->toBe('sku')
-            ->and($e->reason())->toBe('must not exceed 64 characters');
+            ->and($e->reason())->toBe('must contain only letters A-Z, digits, dashes, underscores and dots');
     });
-});
+})->with([
+    'inner space' => 'AB 33',
+    'slash' => 'AB/33',
+    'plus' => 'A+B',
+    'accented letter' => 'CAFÉ-1',
+    'sharp s' => 'STRAßE',
+]);

@@ -59,13 +59,13 @@ it('does not soft delete categories', function (): void {
 });
 
 it('rejects a blank or padded sku even when the domain is bypassed', function (string $sku): void {
-    expect(fn () => insertRawProductRow(['sku' => $sku]))->toThrow(QueryException::class, 'products_sku_trimmed_not_blank');
+    expect(fn () => insertRawProductRow(['sku' => $sku]))->toThrow(QueryException::class, 'products_sku_format');
 })->with(['empty' => '', 'spaces only' => '   ', 'leading space' => ' RAW-002', 'trailing space' => 'RAW-002 ', 'leading tab' => "\tRAW-002"]);
 
 it('rejects a blank or padded name even when the domain is bypassed', function (string $name): void {
     expect(fn () => insertRawProductRow(['name' => $name]))->toThrow(QueryException::class, 'products_name_trimmed_not_blank');
 })->with(['empty' => '', 'spaces only' => '   ', 'leading space' => ' Raw product', 'trailing newline' => "Raw product\n"]);
 
-it('rejects a sku that is not uppercase even when the domain is bypassed', function (): void {
-    expect(fn () => insertRawProductRow(['sku' => 'raw-002']))->toThrow(QueryException::class, 'products_sku_uppercase');
-});
+it('rejects a sku outside the canonical format even when the domain is bypassed', function (string $sku): void {
+    expect(fn () => insertRawProductRow(['sku' => $sku]))->toThrow(QueryException::class, 'products_sku_format');
+})->with(['lowercase' => 'raw-002', 'slash' => 'AB/33', 'accented letter' => 'CAFÉ-1']);
