@@ -146,6 +146,10 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
     - The session-flow tests use a `BrowserSession` helper that forces database sessions; without it, the same-session test passed even with the cookie removed.
     - Laravel 13 already regenerates the session on login.
     - The stock `GET /api/user` route from `install:api` is still present (a candidate for removal).
+  - Consolidated native review (base `666e328`; covers T04, T05, the pg_trgm fix and T06): medium, 1,844 lines, consent granted, one lens (reliability), **approved** and acknowledged (lineage `review-7d1107ccb9268002`). The reviewed boundary is now `f47b518`. Advisory notes:
+    - Stock and weight are bounded only by `PHP_INT_MAX`, but the columns are int32 (also raised by Codex on PR #3).
+    - Soft-deleted categories break both repository paths.
+    - `role:` with a mistyped parameter returns a 500.
 - [ ] T07 Catalog API: admin-only CRUD, category find-or-create, soft delete, reserved SKU error. Route: D. Check: feature tests.
 - [ ] T08 Search API: free text, filters, sorting, pagination. Route: D. Check: feature tests.
 - [ ] T09 Import: CSV reader, row validation, in-file duplicate detection, name-guarded upsert, per-row report endpoint. Route: D. Check: unit + feature tests, including the sample CSV traps.
