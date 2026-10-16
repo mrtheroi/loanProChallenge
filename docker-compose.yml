@@ -20,8 +20,9 @@ services:
       dockerfile: docker/app/Dockerfile
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:80"
+      - "127.0.0.1:8000:80"
     environment:
+      APP_URL: http://localhost:8000
       APP_KEY: base64:NviqIYAkHAnCkRgqivgeYS93oinkze26GTUlgHo9L7A=
       DB_CONNECTION: pgsql
       DB_HOST: db

@@ -22,10 +22,10 @@ The stack has two containers: `app` (Nginx, PHP-FPM, and the Laravel code in one
 
 ```bash
 docker compose up -d --build --wait
-curl http://localhost:8080/api/health
+curl http://localhost:8000/api/health
 ```
 
-The application is served at `http://localhost:8080`, bound to localhost only.
+The application is served at `http://localhost:8000`, bound to localhost only. If port 8000 is already in use (for example by `php artisan serve`), change the published port in `docker-compose.yml` together with `APP_URL`.
 
 Development mode mounts `./backend` into the container, so code changes apply without a rebuild:
 

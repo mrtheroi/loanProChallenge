@@ -110,6 +110,11 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
       - The listener reads the PID file: `pidfile=/run/supervisord.pid` is set in the same file, so the PID-file finding does not apply.
       - The listener does not complete the supervisor event protocol handshake, which is acceptable because it terminates on the first event.
       - Repeatable smoke checks are still F11.
+  - Codex second round on `46894bc`:
+    - The FATAL finding was repeated on the same line. It is not applicable, because the event listener is already in place and was proven; the reply goes in the PR thread.
+    - APP_URL (valid): the user chose port 8000 (the Laravel convention) instead of 8080. `docker-compose.yml` now publishes `127.0.0.1:8000` and sets `APP_URL=http://localhost:8000` explicitly. Proof: health returned 200 on :8000 and `config('app.url')` returned `http://localhost:8000`.
+    - Root-owned `.env` in dev mode (valid): after the copy, in mounted mode, the file is chowned to the owner of the mount dir. Proof: the entrypoint syntax is OK and dev mode stays healthy. Gap: macOS reports the mount as 0:0, so the Linux UID path was not exercised.
+  - Port 8080 is replaced by 8000 everywhere, including the PR body.
 - [ ] T04 Catalog domain: Sku, Money, Stock value objects, Product entity, validation rules. Route: D. Check: Pest unit tests green.
 - [ ] T05 Catalog persistence: products/categories migrations (unique sku that includes deleted rows, soft deletes, pg_trgm indexes), Eloquent repository and mapping. Route: D. Check: Pest feature tests against Postgres.
 - [ ] T06 Identity: Sanctum SPA, register/login/logout/me, admin and buyer roles, policies, demo seeders. Route: D. Check: feature tests for auth and role access.
