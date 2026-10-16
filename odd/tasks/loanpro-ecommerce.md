@@ -104,6 +104,12 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
   - Codex review on PR #1 (2026-10-16) raised F8 and F9 again as P2. Both were fixed on `feat/01-bootstrap` with the user's approval:
     - F8: a supervisord `eventlistener` on `PROCESS_STATE_FATAL` sends SIGTERM to supervisord. Proof: php-fpm was removed and killed inside the container; supervisord logged `php-fpm entered FATAL state`, then shut down, and the Docker RestartCount went from 0 to 1. After a force-recreate, health returned 200.
     - F9: in dev mode (`APP_SOURCE_MOUNTED=true` from `docker-compose.dev.yml`) the entrypoint runs `chmod -R a+rwX` instead of `chown`. Proof: the host owner stayed 501:20, www-data could write to `storage/logs`, pest passed 2/2 in dev mode, and `git status` showed no mode changes.
+    - Commit `494b38d`, reviewed with base `4f4eff6`: high (28 lines), consent granted, four lenses **approved** and acknowledged (lineage `review-be04f9118891362d`). The reviewed boundary is now `494b38d`. Advisory notes:
+      - The dev chmod is world-writable on the host (documented as local-only).
+      - The `chmod -R` under `set -e` could abort boot on rootless Docker or user-namespace remapping (F12, open).
+      - The listener reads the PID file: `pidfile=/run/supervisord.pid` is set in the same file, so the PID-file finding does not apply.
+      - The listener does not complete the supervisor event protocol handshake, which is acceptable because it terminates on the first event.
+      - Repeatable smoke checks are still F11.
 - [ ] T04 Catalog domain: Sku, Money, Stock value objects, Product entity, validation rules. Route: D. Check: Pest unit tests green.
 - [ ] T05 Catalog persistence: products/categories migrations (unique sku that includes deleted rows, soft deletes, pg_trgm indexes), Eloquent repository and mapping. Route: D. Check: Pest feature tests against Postgres.
 - [ ] T06 Identity: Sanctum SPA, register/login/logout/me, admin and buyer roles, policies, demo seeders. Route: D. Check: feature tests for auth and role access.
