@@ -14,7 +14,7 @@ final readonly class CategoryName
     {
         $name = RequiredText::from('category', $value, self::MAX_LENGTH);
 
-        if (mb_strlen(mb_strtolower($name)) > self::MAX_LENGTH) {
+        if (mb_strlen(self::normalize($name)) > self::MAX_LENGTH) {
             throw InvalidProductAttribute::because(
                 'category',
                 sprintf('must not exceed %d characters when lowercased', self::MAX_LENGTH),
@@ -31,6 +31,11 @@ final readonly class CategoryName
 
     public function normalized(): string
     {
-        return mb_strtolower($this->value);
+        return self::normalize($this->value);
+    }
+
+    private static function normalize(string $name): string
+    {
+        return mb_strtolower((string) preg_replace('/\s+/u', ' ', $name));
     }
 }

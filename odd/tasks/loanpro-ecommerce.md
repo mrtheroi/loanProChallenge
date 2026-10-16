@@ -127,7 +127,7 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
 - [x] T04 Catalog domain: Sku, Money, Stock value objects, Product entity, validation rules. Route: D. Check: Pest unit tests green.
   - Route: delegated writer (10 domain classes and 7 test files). Strict TDD; the RED/GREEN log is in the writer report (each behavior failed first for a missing behavior).
   - Domain: `Sku`, `ProductName`, `CategoryName` (with `normalized()`), `Money` (integer cents, no floats), `Stock`, `Weight` (integer grams, optional), `Product`, and `InvalidProductAttribute(field, reason)`. Shared helpers: `RequiredText` and `ScaledDecimal`.
-  - Assumptions: SKU equality is case-sensitive; max lengths are 64, 255 and 100 characters (`mb_strlen`); weight has up to 3 decimals; overflow is rejected as "is too large"; `+5`, `1e3`, `.99`, `29.` and decimal commas are rejected; leading zeros are accepted.
+  - Assumptions: SKU equality was case-sensitive (superseded on 2026-10-16: SKUs are always stored uppercase, by user decision); max lengths are 64, 255 and 100 characters (`mb_strlen`); weight has up to 3 decimals; overflow is rejected as "is too large"; `+5`, `1e3`, `.99`, `29.` and decimal commas are rejected; leading zeros are accepted.
   - Checks: pest unit 97 tests / 174 assertions (the parent re-ran it as a spot check); phpstan level 9 reported 0 errors; pint passed; there are no `Illuminate` references in the domain.
 - [x] T05 Catalog persistence: products/categories migrations (unique sku that includes deleted rows, soft deletes, pg_trgm indexes), Eloquent repository and mapping. Route: D. Check: Pest feature tests against Postgres.
   - Route: delegated writer (3 migrations, port, 2 models, repository, provider, tests).

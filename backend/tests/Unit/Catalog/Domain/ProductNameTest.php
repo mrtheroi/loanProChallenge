@@ -29,3 +29,10 @@ it('rejects more than 255 characters', function (): void {
 it('accepts exactly 255 characters, counting multibyte characters once', function (string $input): void {
     expect(ProductName::fromString($input)->value())->toBe($input);
 })->with(['ascii' => str_repeat('n', 255), 'multibyte' => str_repeat('ñ', 255)]);
+
+it('rejects text that is not valid UTF-8 or contains control characters', function (string $input): void {
+    expect(fn () => ProductName::fromString($input))->toThrow(function (InvalidProductAttribute $e): void {
+        expect($e->field())->toBe('name')
+            ->and($e->reason())->toBe('must be valid UTF-8 text without control characters');
+    });
+})->with(['latin-1' => "Caf\xE9", 'nul byte' => "a\0b", 'line feed' => "a\nb"]);

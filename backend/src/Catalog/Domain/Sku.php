@@ -12,7 +12,13 @@ final readonly class Sku
 
     public static function fromString(string $value): self
     {
-        return new self(RequiredText::from('sku', $value, self::MAX_LENGTH));
+        $canonical = mb_strtoupper(RequiredText::from('sku', $value, self::MAX_LENGTH));
+
+        if (mb_strlen($canonical) > self::MAX_LENGTH) {
+            throw InvalidProductAttribute::because('sku', sprintf('must not exceed %d characters', self::MAX_LENGTH));
+        }
+
+        return new self($canonical);
     }
 
     public function value(): string

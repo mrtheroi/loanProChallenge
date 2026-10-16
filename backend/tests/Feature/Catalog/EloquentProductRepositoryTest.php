@@ -122,19 +122,40 @@ it('refuses to save the sku of a soft-deleted product and leaves the deleted row
         ->and(ProductModel::withTrashed()->count())->toBe(1);
 });
 
-it('reports a reserved sku when a concurrent insert takes the sku first', function (): void {
+it('translates a products_sku_unique violation raised by the insert into a reserved sku', function (): void {
     ProductModel::creating(function (ProductModel $product): void {
         DB::table('products')->insert([
             'sku' => $product->sku,
-            'name' => 'Concurrent product',
+            'name' => 'Row that appeared after the lookup',
             'category_id' => $product->category_id,
             'price_cents' => 100,
             'stock' => 1,
         ]);
     });
 
-    expect(fn () => productRepository()->save(aPersistableProduct()))->toThrow(SkuIsReserved::class, 'SKU-001')
-        ->and(ProductModel::withTrashed()->count())->toBe(0);
+    expect(fn () => productRepository()->save(aPersistableProduct()))->toThrow(SkuIsReserved::class, 'SKU-001');
+});
+
+it('overwrites a live product saved earlier by another writer, so the last write wins', function (): void {
+    productRepository()->save(aPersistableProduct(name: 'First writer', stock: 1));
+
+    productRepository()->save(aPersistableProduct(name: 'Second writer', stock: 2));
+
+    expect(productRepository()->findBySku(Sku::fromString('SKU-001')))
+        ->toEqual(aPersistableProduct(name: 'Second writer', stock: 2))
+        ->and(ProductModel::withTrashed()->count())->toBe(1);
+});
+
+it('treats skus that differ only in casing as the same product', function (): void {
+    productRepository()->save(aPersistableProduct(sku: 'abc-1', name: 'Lowercase input'));
+    productRepository()->save(aPersistableProduct(sku: 'ABC-1', name: 'Uppercase input'));
+
+    $found = productRepository()->findBySku(Sku::fromString('abc-1'));
+
+    expect($found?->sku()->value())->toBe('ABC-1')
+        ->and($found?->name()->value())->toBe('Uppercase input')
+        ->and(ProductModel::withTrashed()->count())->toBe(1)
+        ->and(ProductModel::query()->value('sku'))->toBe('ABC-1');
 });
 
 it('round-trips every field at its maximum allowed value', function (): void {

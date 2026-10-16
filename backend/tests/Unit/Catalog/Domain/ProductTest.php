@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Ecommerce\Catalog\Domain\CategoryName;
+use Ecommerce\Catalog\Domain\InvalidProductAttribute;
 use Ecommerce\Catalog\Domain\Money;
 use Ecommerce\Catalog\Domain\Product;
 use Ecommerce\Catalog\Domain\ProductName;
@@ -47,4 +48,15 @@ it('trims the description and stores blank descriptions as null', function (?str
 
 it('allows a product without weight', function (): void {
     expect(aProduct(weight: null)->weight())->toBeNull();
+});
+
+it('rejects a description that is not valid UTF-8 or contains control characters', function (string $input): void {
+    expect(fn () => aProduct(description: $input))->toThrow(function (InvalidProductAttribute $e): void {
+        expect($e->field())->toBe('description')
+            ->and($e->reason())->toBe('must be valid UTF-8 text without control characters');
+    });
+})->with(['latin-1' => "Caf\xE9", 'nul byte' => "a\0b", 'escape' => "a\x1Bb"]);
+
+it('keeps tabs, line feeds and carriage returns inside the description', function (): void {
+    expect(aProduct(description: "Line one\r\n\tLine two")->description())->toBe("Line one\r\n\tLine two");
 });
