@@ -59,8 +59,15 @@ PHP 8.4.25, Composer 2.10.2, Node 20.20.2, npm 11.14.1, Docker 29.4.1, Compose v
 ## Tasks
 Route: D = delegated writer (2+ non-trivial files); I = inline.
 
-- [ ] T01 Repository bootstrap: git init, .gitignore, sample CSV in `docs/sample-data/`, README skeleton with the CSV download date. Route: I. Check: files present.
-- [ ] T02 Backend scaffold: Laravel API-only, Pest, Larastan, Pint, Postgres config, PSR-4 `src/`, health endpoint test. Route: D. Check: Pest green, Larastan clean.
+- [x] T01 Repository bootstrap: git init, .gitignore, sample CSV in `docs/sample-data/`, README skeleton with the CSV download date. Route: I. Check: files present.
+  - Evidence: commit `3d033bd`. `cmp` confirmed the CSV is byte-identical to the downloaded file. TDD exception: passive files only, no runnable behavior.
+  - Review: assessed `medium` (`.gitignore` counted as executable), `review_due=false` (`under_budget`, 219 lines). Stays pending in slice 1; the reviewed boundary is still `4b885bb`.
+- [x] T02 Backend scaffold: Laravel API-only, Pest, Larastan, Pint, Postgres config, PSR-4 `src/`, health endpoint test. Route: D. Check: Pest green, Larastan clean.
+  - Route: delegated writer (scaffold plus several config files and a test).
+  - Stack: Laravel 13.36.0, Pest 4.7, Larastan 3.13 (PHPStan level 9, no baseline), Pint 1.27, namespace `Ecommerce\` → `src/`.
+  - RED: `GET /api/health` returned 404. GREEN: the route was added; 1 test, 2 assertions.
+  - Checks: `pest` passed (the parent re-ran it as a spot check); `phpstan analyse` reported 0 errors at level 9; `pint --test` passed.
+  - The user set the PostgreSQL variables in `backend/.env.example` manually, because permission rules block agents from reading or editing `.env*` files. The user also deleted the Laravel Boost `AGENTS.md` and `CLAUDE.md` from the scaffold. `.atl/` (local skill registry) was added to `.gitignore`.
 - [ ] T03 Docker Compose: db + test database, api, web (Nginx proxy); migrations and seeders on boot. Route: D. Check: `docker compose up` serves the health endpoint through localhost:8080.
 - [ ] T04 Catalog domain: Sku, Money, Stock value objects, Product entity, validation rules. Route: D. Check: Pest unit tests green.
 - [ ] T05 Catalog persistence: products/categories migrations (unique sku that includes deleted rows, soft deletes, pg_trgm indexes), Eloquent repository and mapping. Route: D. Check: Pest feature tests against Postgres.
@@ -87,7 +94,8 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
 - All test suites and static checks pass locally and in CI.
 
 ## Progress
-- 2026-10-15: Decision round closed. Feature document created. Next: choose the chain strategy, then T01.
+- 2026-10-15: Decision round closed. Feature document created.
+- 2026-10-15: Chain strategy set to stacked-to-main. T01 done on `feat/01-bootstrap`.
 
 ## Next step
-The user chooses the chain strategy (stacked-to-main or feature-branch-chain). Then start T01.
+T02, the backend scaffold, on `feat/01-bootstrap`.
