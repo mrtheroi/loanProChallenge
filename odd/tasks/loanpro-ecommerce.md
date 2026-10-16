@@ -95,6 +95,12 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
   - Checks (from a fresh volume): `app` and `db` healthy; `/api/health` returned 200; `/` returned 200; `/.git/config` returned 403; the SPA fallback `/products/1` returned 200; pest 2/2, phpstan level 9 and pint passed; health returned 200 after an app restart; in dev mode the bind mount and vendor volume were confirmed through `/proc/mounts` and pest passed. The parent spot-checked `up --wait`, `ps` and the health curl.
   - Resolves the nginx stale-upstream gap from T03 by design: nginx and FPM talk over `127.0.0.1`.
   - Notes: `up --wait` requires Compose v2.1.1 or later (verified in the release notes by the writer). The dev-mode vendor volume goes stale after Composer changes (documented in the README). F7 (root-owned storage after `exec`) is still open. TDD exception: packaging only; the existing suite is the regression proof.
+  - Evidence: commit `4f4eff6`. Review with base `c8ea595`: high (269 lines), consent granted, four lenses **approved** and acknowledged (lineage `review-d52366b100517be1`). The reviewed boundary is now `4f4eff6`.
+  - Advisory follow-ups:
+    - F8: supervisord as PID 1 keeps the container alive if php-fpm or nginx goes FATAL, so `restart: unless-stopped` never fires; add an event listener that stops supervisord on FATAL.
+    - F9: in dev mode the bind mount hides the image's storage dirs, and the entrypoint chowns host files.
+    - F10: the 10M upload limit is set in both php.ini and nginx; keep them in sync.
+    - F11: add a repeatable smoke script (or CI step) for the packaging checks.
 - [ ] T04 Catalog domain: Sku, Money, Stock value objects, Product entity, validation rules. Route: D. Check: Pest unit tests green.
 - [ ] T05 Catalog persistence: products/categories migrations (unique sku that includes deleted rows, soft deletes, pg_trgm indexes), Eloquent repository and mapping. Route: D. Check: Pest feature tests against Postgres.
 - [ ] T06 Identity: Sanctum SPA, register/login/logout/me, admin and buyer roles, policies, demo seeders. Route: D. Check: feature tests for auth and role access.
