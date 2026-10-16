@@ -77,6 +77,17 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
   - Deviations: the api healthcheck (`nc` on port 9000) gates `web`; one nginx regex location handles `/api` and `/sanctum`; the code is baked into the image (rebuild after changes); `DatabaseSeeder` is empty until T06.
   - Environment issue: Compose v5 bake builds hang on this machine; `COMPOSE_BAKE=false` builds in about 1 minute. The README run instructions must mention this.
   - Backend tests now run inside the container: `docker compose exec api ./vendor/bin/pest`.
+  - Evidence: commit `16f5593`.
+  - Review: assessed `high` (170 lines, base `e74dcac`). The user granted consent; the four-lens review was **approved** and acknowledged (lineage `review-2b35a977877aa1ec`, authority burned). The reviewed boundary is now `16f5593`. It raised 15 non-blocking advisory findings, recorded below as follow-ups.
+  - Advisory follow-ups (not yet authorized as scope):
+    - F1: publish `web` on `127.0.0.1:8080` only, and make sure `APP_DEBUG` is false outside local development (R1-001).
+    - F2: `APP_KEY` rotates whenever the api container is recreated; pass a stable key through compose (R3-001, R4).
+    - F3: add a `restart` policy for `api`, and make nginx re-resolve the `api` upstream (Docker DNS resolver) after a recreate (R4).
+    - F4: run the db healthcheck over TCP (`pg_isready -h localhost`) so it does not race the init script (R4).
+    - F5: seeders must be idempotent (`firstOrCreate`). Applies to T06 (R2, R3-004).
+    - F6: document that `ecommerce_test` is created only on the first volume init; recover with `docker compose down -v` (R3-002).
+    - F7: the `api` container runs as root during `exec`, so storage files can become root-owned (R4).
+    - Notes accepted as-is: the plaintext local DB password (local only, no host port), the `<server>` vs `<env>` choice in `phpunit.xml`, and the empty seeder. The no-comments rule is a challenge constraint, so the README will explain these.
 - [ ] T04 Catalog domain: Sku, Money, Stock value objects, Product entity, validation rules. Route: D. Check: Pest unit tests green.
 - [ ] T05 Catalog persistence: products/categories migrations (unique sku that includes deleted rows, soft deletes, pg_trgm indexes), Eloquent repository and mapping. Route: D. Check: Pest feature tests against Postgres.
 - [ ] T06 Identity: Sanctum SPA, register/login/logout/me, admin and buyer roles, policies, demo seeders. Route: D. Check: feature tests for auth and role access.
