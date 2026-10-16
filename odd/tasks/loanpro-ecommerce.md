@@ -115,6 +115,12 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
     - APP_URL (valid): the user chose port 8000 (the Laravel convention) instead of 8080. `docker-compose.yml` now publishes `127.0.0.1:8000` and sets `APP_URL=http://localhost:8000` explicitly. Proof: health returned 200 on :8000 and `config('app.url')` returned `http://localhost:8000`.
     - Root-owned `.env` in dev mode (valid): after the copy, in mounted mode, the file is chowned to the owner of the mount dir. Proof: the entrypoint syntax is OK and dev mode stays healthy. Gap: macOS reports the mount as 0:0, so the Linux UID path was not exercised.
   - Port 8080 is replaced by 8000 everywhere, including the PR body.
+  - Commit `42766c8`, reviewed with base `494b38d`: high (21 lines), consent granted, four lenses **approved** and acknowledged (lineage `review-d44def4504f3f30d`). The reviewed boundary is now `42766c8`. Advisory notes:
+    - F12 is widened: the dev-mode `chown` of `.env` and the `chmod` both run under `set -e` and can abort boot on rootless Docker or user-namespace remapping. Make them best-effort with a warning.
+    - The Linux UID path is unproven on macOS.
+    - A root-owned `.env` left by an older boot stays root-owned.
+    - The port and `APP_URL` must be kept in sync.
+    - The committed dev `APP_KEY` (already documented).
 - [ ] T04 Catalog domain: Sku, Money, Stock value objects, Product entity, validation rules. Route: D. Check: Pest unit tests green.
 - [ ] T05 Catalog persistence: products/categories migrations (unique sku that includes deleted rows, soft deletes, pg_trgm indexes), Eloquent repository and mapping. Route: D. Check: Pest feature tests against Postgres.
 - [ ] T06 Identity: Sanctum SPA, register/login/logout/me, admin and buyer roles, policies, demo seeders. Route: D. Check: feature tests for auth and role access.
