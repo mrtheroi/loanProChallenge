@@ -52,6 +52,10 @@ final class PlaceOrderRequest extends FormRequest
                 throw InvalidOrderInput::because("items.{$index}.sku", $exception->reason());
             }
 
+            if (array_key_exists($sku, $quantities)) {
+                throw InvalidOrderInput::because("items.{$index}.sku", 'repeats the sku of another line');
+            }
+
             $quantities[$sku] = (int) $item['quantity'];
         }
 

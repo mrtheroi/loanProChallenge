@@ -7,6 +7,7 @@ use Ecommerce\Ordering\Domain\Charge;
 use Ecommerce\Ordering\Domain\Order;
 use Ecommerce\Ordering\Domain\OrderRepository;
 use Ecommerce\Ordering\Domain\PaymentCard;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Feature\Catalog\AdminCatalog;
@@ -232,4 +233,16 @@ it('throttles checkout attempts per buyer', function (): void {
 
     Checkout::place($buyer, $declined)->assertTooManyRequests();
     Checkout::place(Checkout::buyer(), Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]]))->assertCreated();
+});
+
+it('rejects two lines that resolve to the same sku even without the global trim', function (): void {
+    Checkout::product('MUG-1', '1.00', 10);
+    $this->withoutMiddleware(TrimStrings::class);
+    $before = checkoutSnapshot();
+
+    Checkout::place(Checkout::buyer(), Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1], ['sku' => ' mug-1 ', 'quantity' => 5]]))
+        ->assertUnprocessable()
+        ->assertJsonPath('errors', ['items.1.sku' => ['repeats the sku of another line']]);
+
+    expect(checkoutSnapshot())->toBe($before);
 });
