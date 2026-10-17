@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace Ecommerce\Catalog\Infrastructure;
 
+use Ecommerce\Catalog\Domain\CategoryName;
+use Ecommerce\Catalog\Domain\Money;
+use Ecommerce\Catalog\Domain\Product;
+use Ecommerce\Catalog\Domain\ProductName;
+use Ecommerce\Catalog\Domain\Sku;
+use Ecommerce\Catalog\Domain\Stock;
+use Ecommerce\Catalog\Domain\Weight;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -41,5 +48,18 @@ final class ProductModel extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(CategoryModel::class, 'category_id');
+    }
+
+    public function toProduct(): Product
+    {
+        return Product::create(
+            Sku::fromString($this->sku),
+            ProductName::fromString($this->name),
+            $this->description,
+            CategoryName::fromString($this->category->name),
+            Money::fromCents($this->price_cents),
+            Stock::from($this->stock),
+            $this->weight_grams === null ? null : Weight::fromGrams($this->weight_grams),
+        );
     }
 }
