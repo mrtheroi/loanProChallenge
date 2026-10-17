@@ -6,9 +6,10 @@ export function safeRedirect(target: string | null): string | null {
   if (target === null || !target.startsWith('/') || hasUnsafeCharacter(target)) return null
 
   const url = new URL(target, ORIGIN)
-  if (url.origin !== ORIGIN) return null
+  const normalized = url.pathname + url.search + url.hash
+  if (url.origin !== ORIGIN || normalized.startsWith('//')) return null
 
-  return url.pathname + url.search + url.hash
+  return normalized
 }
 
 function hasUnsafeCharacter(value: string): boolean {

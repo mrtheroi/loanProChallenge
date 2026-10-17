@@ -17,6 +17,8 @@ describe('safeRedirect', () => {
     ['/\\evil.example'],
     ['/\t/evil.example'],
     ['/\n/evil.example'],
+    ['/a/..//evil.example'],
+    ['/a/../\\evil.example'],
     ['https://evil.example/orders'],
     ['javascript:alert(1)'],
   ])('rejects %j', (target) => {
