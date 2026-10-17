@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { searchProducts, type Product } from '@/features/catalog/api/catalogApi'
+import { ApiError } from '@/shared/api/http'
 import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
@@ -23,6 +24,7 @@ export function AdminProductsContainer() {
       await queryClient.invalidateQueries({ queryKey: ['product'] })
     },
   })
+  const invalidSearch = products.error instanceof ApiError && products.error.status === 422 ? products.error : null
   const failedDelete = remove.isError ? remove.variables : undefined
 
   const search = (event: FormEvent<HTMLFormElement>) => {
@@ -46,7 +48,7 @@ export function AdminProductsContainer() {
         </Button>
       </div>
       <form role="search" onSubmit={search} className="flex gap-2">
-        <Input name="q" aria-label="Search products" defaultValue={params.get('q') ?? ''} key={params.get('q') ?? ''} placeholder="Name, SKU or description" />
+        <Input name="q" aria-label="Search products" maxLength={100} defaultValue={params.get('q') ?? ''} key={params.get('q') ?? ''} placeholder="Name, SKU or description" />
         <Button type="submit" variant="outline">
           Search
         </Button>
@@ -57,7 +59,12 @@ export function AdminProductsContainer() {
         </Alert>
       )}
       {products.isPending && <p className="text-muted-foreground">Loading…</p>}
-      {products.isError && (
+      {invalidSearch && (
+        <Alert variant="destructive">
+          <AlertDescription>Check your search: {invalidSearch.message}</AlertDescription>
+        </Alert>
+      )}
+      {products.isError && !invalidSearch && (
         <div className="flex flex-col items-start gap-3">
           <p>We could not load the products.</p>
           <Button onClick={() => void products.refetch()}>Try again</Button>

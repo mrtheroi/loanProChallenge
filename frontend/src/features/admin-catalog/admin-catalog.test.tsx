@@ -162,4 +162,16 @@ describe('admin catalog', () => {
 
     expect(await screen.findByRole('row', { name: /MUG-1/ })).toBeInTheDocument()
   })
+  it('shows the API validation message for an invalid search instead of a retry', async () => {
+    server.use(
+      http.get('/api/products', () => HttpResponse.json({ message: 'The q field must not be greater than 100 characters.', errors: { q: ['The q field must not be greater than 100 characters.'] } }, { status: 422 })),
+      ...authHandlers(admin).handlers,
+      ...catalogHandlers([]).handlers,
+    )
+    renderRoute(`/admin?q=${'a'.repeat(101)}`)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Check your search: The q field must not be greater than 100 characters.')
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Search products')).toHaveAttribute('maxlength', '100')
+  })
 })
