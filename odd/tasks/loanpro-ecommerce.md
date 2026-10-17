@@ -104,7 +104,7 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
     - F9: in dev mode the bind mount hides the image's storage dirs, and the entrypoint chowns host files.
     - F10: the import accepts files up to 10 MB (Laravel `max:10240`); the infrastructure limits sit above it to leave room for multipart overhead (nginx `client_max_body_size 12M`, php `post_max_size 12M`, `upload_max_filesize 11M`). Keep the three in step.
     - F13 (user asked to revisit after the core): measure a large synchronous import, then evaluate async import (queue job + `imports` table + status endpoint) with push notification via Laravel Reverb (1.12 supports Laravel 13) versus polling. A browser cannot receive webhooks; SSE is a poor fit for PHP-FPM.
-    - F14 (next PR, first commit): skip blank records before the CSV header so a leading empty line is not reported as "missing all columns"; pin it with a test.
+    - F14 (done on `feat/10-checkout`, first commit): skip blank records before the CSV header so a leading empty line is not reported as "missing all columns"; pin it with a test.
     - F11: add a repeatable smoke script (or CI step) for the packaging checks.
   - Codex review on PR #1 (2026-10-16) raised F8 and F9 again as P2. Both were fixed on `feat/01-bootstrap` with the user's approval:
     - F8: a supervisord `eventlistener` on `PROCESS_STATE_FATAL` sends SIGTERM to supervisord. Proof: php-fpm was removed and killed inside the container; supervisord logged `php-fpm entered FATAL state`, then shut down, and the Docker RestartCount went from 0 to 1. After a force-recreate, health returned 200.
@@ -199,6 +199,13 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
   - Codex second pass on PR #7 (2 x P2) plus native review 4 (lineage review-aa7c4d476033f6b3, approved, 3 suggestions): (1) check-then-write on the name guard: `ProductRepository::update()` takes an optional expected name and updates `WHERE sku AND name` atomically; a concurrent rename fails the row (`ProductChangedConcurrently`); (2) nginx/php body limits raised above the 10 MB file limit (F10), not covered by an automated test, checked on the next image rebuild; (3) blank rows no longer count toward the 5,000 cap, with a test that exactly 5,000 rows plus blanks are accepted; (4) invalid-row signatures normalize name and category casing and spacing. Accepted trade-off: an unexpected database error mid-import returns 500 after earlier rows were committed; the import is partial by design and re-importing is idempotent. Suite 436 passed.
   - Native review 5 (lineage review-6a1da134e14e4b18, resilience + reliability): approved and acknowledged. WARNING = the accepted partial-write trade-off above (no change). SUGGESTION deferred to F14 by the user (2026-10-16, verbatim: "ya no encontro issues codex creo que eso lo podemos corregir en el siguiente pr para cerrar esta parte"): a blank line before the header is rejected as "missing all columns" because empty records are now kept.
 - [ ] T10 Ordering: orders/order_items with snapshots, atomic Checkout use case, PaymentGateway port + fake adapter, idempotency, My orders. Route: D. Check: unit + feature tests.
+  - Contract (assumptions, not user strings; built on the agreed decisions above):
+    - `POST /api/orders` (buyer only, `can:purchase`), header `Idempotency-Key` (UUID, required), body `items` (1–50 lines of `sku` + `quantity` 1–999, SKUs unique per request) and `card` (`number` 13–19 digits with spaces allowed, `exp_month`, `exp_year` not expired, `cvc` 3–4 digits).
+    - One transaction: lock the product rows `FOR UPDATE` in SKU order (no deadlocks), reject the whole order with 409 and per-SKU details when any item is missing, deleted or short, price from the database, charge the fake gateway, decrement stock, store the order with frozen name/SKU/unit price per line.
+    - Payment: `4242424242424242` approves; `4000000000000002` declines with 402; any other number is declined as an unsupported test card. Only brand and last 4 are stored; the number and CVC are never persisted or logged. A declined payment stores nothing.
+    - Idempotency: unique (user, key). Same key + same request → the stored order with 200; same key + different request → 422. Concurrent duplicates are resolved by the unique index.
+    - `GET /api/orders` (own orders, newest first, paginated) and `GET /api/orders/{id}` (404 for another buyer's order).
+    - The fake gateway runs inside the transaction while the locks are held; a real gateway would use authorize/capture or an outbox (README trade-off).
 - [ ] T11 Concurrency integration test (two processes, last unit) or a declared gap. Route: D. Check: the test is stable, or the gap is documented.
 - [ ] T12 Frontend scaffold: Vite + React + TypeScript strict, Tailwind 4, shadcn in shared/ui, Router, Query, Vitest + RTL + MSW, Vite proxy, web Docker build. Route: D. Check: Vitest green, ESLint/tsc clean.
 - [ ] T13 Frontend auth: login, register, role-protected routes, Store and Admin layouts. Route: D. Check: Vitest + MSW.
@@ -222,4 +229,4 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
 - 2026-10-16: Slice 1 complete (T01, T02, T03, hardening, T03b). Pushed, and PR #1 opened: https://github.com/mrtheroi/loanProChallenge/pull/1 (`size:exception` recommended: about 12,300 generated or data lines; about 430 authored).
 
 ## Next step
-T09 on `feat/09-csv-import` (PR #6 merged 2026-10-16).
+T10 on `feat/10-checkout` (PR #7 merged 2026-10-16).
