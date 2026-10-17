@@ -11,7 +11,7 @@ interface OrderRepository
     /** @throws DuplicateIdempotencyKey */
     public function claim(int $userId, string $key, string $requestHash, PaymentCard $card): int;
 
-    /** @param  list<OrderLine>  $lines */
+    /** @param list<OrderLine> $lines */
     public function complete(int $orderId, array $lines, Charge $charge): Order;
 
     public function findForUser(int $userId, int $orderId): ?Order;

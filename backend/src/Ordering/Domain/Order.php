@@ -8,7 +8,7 @@ use DateTimeImmutable;
 
 final readonly class Order
 {
-    /** @param  list<OrderLine>  $lines */
+    /** @param list<OrderLine> $lines */
     public function __construct(
         public int $id,
         public string $requestHash,

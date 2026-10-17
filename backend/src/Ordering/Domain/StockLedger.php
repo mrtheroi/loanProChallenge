@@ -12,6 +12,6 @@ interface StockLedger
      */
     public function lock(array $skus): array;
 
-    /** @param  array<int, int>  $quantitiesByProductId */
+    /** @param array<int, int> $quantitiesByProductId */
     public function decrement(array $quantitiesByProductId): void;
 }

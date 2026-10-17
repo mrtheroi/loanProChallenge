@@ -18,7 +18,7 @@ afterEach(function (): void {
 
 /**
  * @param  array<int, resource>  $streams
- * @return array<int, string>|null null when the deadline passed
+ * @return array<int, string>|null
  */
 function drainUntil(array $streams, float $deadline, bool $untilFirstLine = false): ?array
 {

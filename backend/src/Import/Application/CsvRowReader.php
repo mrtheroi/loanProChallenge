@@ -6,6 +6,6 @@ namespace Ecommerce\Import\Application;
 
 interface CsvRowReader
 {
-    /** @return iterable<int, list<string>> records keyed by row number, the header being row 1 */
+    /** @return iterable<int, list<string>> */
     public function read(string $path): iterable;
 }

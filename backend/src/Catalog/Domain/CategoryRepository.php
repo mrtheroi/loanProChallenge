@@ -8,6 +8,6 @@ interface CategoryRepository
 {
     public function exists(CategoryName $category): bool;
 
-    /** @return list<string> category names that have at least one visible product */
+    /** @return list<string> */
     public function namesInUse(): array;
 }

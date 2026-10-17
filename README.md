@@ -13,10 +13,11 @@ An e-commerce application with product CRUD, CSV import, product search, and pur
 - [Running locally](#running-locally)
 - [Trying it out](#trying-it-out)
 - [Architecture](#architecture)
+- [Questions asked before building](#questions-asked-before-building)
 - [Decisions, approach, and alternatives considered](#decisions-approach-and-alternatives-considered)
 - [Security](#security)
 - [Known limitations and follow-ups](#known-limitations-and-follow-ups)
-- [How AI was used](#how-ai-was-used)
+- [Code conventions](#code-conventions)
 
 ## Sample data
 
@@ -133,6 +134,26 @@ frontend/src/
 
 Containers own data fetching and state; components only render props. Server state lives in TanStack Query; the cart lives in a persisted Zustand store. Money is handled as integer cents (`bigint`) end to end to avoid floating-point errors.
 
+## Questions asked before building
+
+The challenge leaves most rules open, and the sample CSV is deliberately dirty, so these questions were settled before writing code. The answers are the decisions documented in the next section.
+
+- **What identifies a product?** The SKU, unique per sellable variant. What happens to the SKU of a deleted product: can it be reused? (No: it stays reserved, so old orders keep pointing to the right thing.)
+- **What should an import do with a dirty file?** Reject the whole file, or import the valid rows and report the rest? (Partial import with a per-row report.)
+- **What if a row's SKU already exists?** Update it, skip it, or fail? And what if the name differs? (Update when the normalized name matches; fail when it differs, so an import never renames a product.)
+- **What if the same SKU appears twice in one file with different data?** (Reject all of its rows; the system does not guess which one is right.)
+- **Is stock in the file absolute or an increment?** (Absolute.)
+- **Is `$29.99` a price? Is `free`? Is `0`?** (No, no, yes. The system validates and reports; it never guesses.)
+- **Is category an enum or open data?** (A table, because the file brings categories an enum would reject.)
+- **What do the injection payloads in the file mean for storage and display?** (Store them as plain text through bound parameters; always render them as text.)
+- **Who can do what?** Can a visitor search? Who can buy? Can an admin buy? (Search is public; buyers sign up and buy; the admin manages the catalog and cannot buy.)
+- **Where does the cart live, and does it reserve stock?** (In the browser, without reserving stock; the server re-checks everything at checkout.)
+- **What if two buyers try to buy the last unit at the same moment?** (Row locks in one transaction; one order wins, the other gets a clear shortage error.)
+- **What if the price changes while a product sits in the cart?** (Checkout fails with the price changes and charges nothing; the buyer reviews and confirms.)
+- **What if the network drops after the payment is charged and the buyer clicks Pay again?** (Idempotency key: the retry returns the same order instead of charging twice.)
+- **Which card data may be stored?** (Brand and last four digits only.)
+- **How large can an import be, and should it be synchronous?** (Synchronous up to 5,000 rows; an asynchronous import is a documented follow-up.)
+
 ## Decisions, approach, and alternatives considered
 
 The work was planned before any code: questions about the CSV traps, concurrency, security and scope were answered first, then the features were built test-first in small pull requests. Each decision below names the alternative that was rejected and why.
@@ -212,8 +233,7 @@ Two containers: `app` (Nginx + PHP-FPM + supervisord, serving the built SPA and 
 - **Cart stock** is the value seen when the line was added; the final check happens at checkout.
 - **Test and tooling polish:** pin GitHub Actions to commit SHAs; use fake timers in the "Added to cart" test; build the Docker image in CI.
 
-## How AI was used
+## Code conventions
 
-AI (Claude) was used as a pair programmer under my direction. I made the product and architecture decisions above after working through the trade-offs; the AI proposed options, implemented them test-first (red, green, refactor), and every change went through my review plus an automated local review (Gentle AI) and Codex reviews on each pull request before merging.
-
-As the challenge asks, comments were removed from the code. The only annotations kept are the PHPDoc type tags (`@param`, `@return`, `@var`, ...) that Larastan level 9 needs to check types PHP cannot express natively, and tool directives such as `/* @vite-ignore */`. They describe types for tools, not behavior for readers.
+- The code carries no comments; names, small functions and tests carry the intent. The only annotations are PHPDoc type tags (`@param`, `@return`, `@var`, `@template`) that Larastan level 9 needs for types PHP cannot express natively, and tool directives such as `/// <reference types>` and `/* @vite-ignore */`.
+- Behavior is built test-first (red, green, refactor), one rule at a time, and every pull request runs the CI checks above.
