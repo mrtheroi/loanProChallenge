@@ -44,8 +44,15 @@ describe('checkout', () => {
     expect(await screen.findByText('Total: $39.48')).toBeInTheDocument()
     await payWith(user)
 
+    const sawEmptyCart = { value: false }
+    const observer = new MutationObserver(() => {
+      if (document.body.textContent?.includes('Your cart is empty.')) sawEmptyCart.value = true
+    })
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true })
     await waitFor(() => expect(router.state.location.pathname).toBe('/orders/77'))
     expect(await screen.findByText('Thank you! Your order is confirmed.')).toBeInTheDocument()
+    observer.disconnect()
+    expect(sawEmptyCart.value).toBe(false)
     expect(orders.placed).toHaveLength(1)
     expect(orders.placed[0]?.key).toMatch(UUID)
     expect(orders.placed[0]?.body).toEqual({
