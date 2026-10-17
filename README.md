@@ -39,6 +39,17 @@ Backend tests run inside the container against a dedicated PostgreSQL database:
 docker compose exec app ./vendor/bin/pest
 ```
 
+The image builds the React frontend with Node 26 and Nginx serves it at `http://localhost:8000`. To work on the frontend with hot reload, start the backend in development mode (above) and run Vite on the host with Node 26 (`frontend/.nvmrc`); it proxies `/api` and `/sanctum` to port 8000:
+
+```bash
+cd frontend
+npm ci
+npm run dev        # http://localhost:5173
+npm test           # Vitest + Testing Library + MSW
+npm run typecheck  # tsc
+npm run lint       # oxlint
+```
+
 Notes:
 
 - If the build stalls with no output (an issue observed with the Compose Bake builder), run it with `COMPOSE_BAKE=false docker compose up -d --build --wait`.
