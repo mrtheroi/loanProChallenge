@@ -1,12 +1,22 @@
 import { MutationCache, QueryCache, QueryClient, type DefaultOptions } from '@tanstack/react-query'
 import { currentUserKey } from '@/features/auth/hooks/useAuth'
 import { ApiError } from '@/shared/api/http'
+import { removePrivateQueries } from '@/shared/api/privateQueries'
 
 const UNAUTHENTICATED = 401
+const MAX_RETRIES = 2
+
+/** Retries temporary failures (5xx or no response) but never a client error that would fail again. */
+export function shouldRetry(failureCount: number, error: unknown): boolean {
+  if (error instanceof ApiError && error.status < 500) return false
+
+  return failureCount < MAX_RETRIES
+}
 
 export function createQueryClient(defaultOptions: DefaultOptions = {}): QueryClient {
   const signOutOnExpiredSession = (error: unknown) => {
     if (isExpiredSession(error)) {
+      removePrivateQueries(client)
       client.setQueryData(currentUserKey, null)
     }
   }

@@ -147,17 +147,17 @@ it('rejects an invalid checkout request before touching stock', function (array 
 
     expect(checkoutSnapshot())->toBe($before);
 })->with([
-    'missing key' => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]]), null, 'idempotency_key'],
-    'key not a uuid' => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]]), 'abc', 'idempotency_key'],
-    'no items' => [Checkout::payload([]), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'items'],
-    'quantity zero' => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 0]]), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'items.0.quantity'],
-    'quantity too large' => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1000]]), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'items.0.quantity'],
-    'quantity not integer' => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => '1.5']]), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'items.0.quantity'],
-    'duplicate sku in another case' => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1], ['sku' => 'mug-1', 'quantity' => 1]]), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'items.1.sku'],
-    'malformed sku' => [Checkout::payload([['sku' => 'MUG 1', 'quantity' => 1]]), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'items.0.sku'],
-    'card number' => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]], ['number' => '1234']), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'card.number'],
-    'expired card' => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]], ['exp_year' => 2020]), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'card.exp_year'],
-    'missing cvc' => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]], ['cvc' => '']), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'card.cvc'],
+    'missing key' => fn (): array => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]]), null, 'idempotency_key'],
+    'key not a uuid' => fn (): array => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]]), 'abc', 'idempotency_key'],
+    'no items' => fn (): array => [Checkout::payload([]), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'items'],
+    'quantity zero' => fn (): array => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 0]]), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'items.0.quantity'],
+    'quantity too large' => fn (): array => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1000]]), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'items.0.quantity'],
+    'quantity not integer' => fn (): array => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => '1.5']]), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'items.0.quantity'],
+    'duplicate sku in another case' => fn (): array => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1], ['sku' => 'mug-1', 'quantity' => 1]]), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'items.1.sku'],
+    'malformed sku' => fn (): array => [Checkout::payload([['sku' => 'MUG 1', 'quantity' => 1]]), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'items.0.sku'],
+    'card number' => fn (): array => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]], ['number' => '1234']), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'card.number'],
+    'expired card' => fn (): array => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]], ['exp_year' => 2020]), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'card.exp_year'],
+    'missing cvc' => fn (): array => [Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]], ['cvc' => '']), '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10', 'card.cvc'],
 ]);
 
 it('only lets buyers place orders', function (): void {
@@ -318,4 +318,58 @@ it('replays a paid order even after the card has expired', function (): void {
 
     expect(Checkout::place($buyer, $payload, $key)->assertOk()->json())->toBe($first);
     Checkout::place($buyer, $payload)->assertUnprocessable()->assertJsonValidationErrors(['card.exp_year']);
+});
+
+it('rejects the order without charging when a price changed since the buyer saw it', function (): void {
+    Checkout::product('MUG-1', '16.99', 10);
+    Checkout::product('CUP-1', '5.50', 10);
+    $before = checkoutSnapshot();
+
+    Checkout::place(Checkout::buyer(), Checkout::payload([
+        ['sku' => 'MUG-1', 'quantity' => 1, 'unit_price' => '10.00'],
+        ['sku' => 'CUP-1', 'quantity' => 1, 'unit_price' => '5.50'],
+    ]))
+        ->assertStatus(409)
+        ->assertExactJson([
+            'message' => 'Some prices changed. Review your cart before paying.',
+            'price_changes' => [['sku' => 'MUG-1', 'expected' => '10.00', 'current' => '16.99']],
+        ]);
+
+    expect(checkoutSnapshot())->toBe($before);
+});
+
+it('requires a valid expected unit price for every line', function (array $item): void {
+    Checkout::product('MUG-1', '16.99', 10);
+
+    test()->actingAs(Checkout::buyer())
+        ->postJson('/api/orders', ['items' => [$item], 'card' => Checkout::payload([])['card']], ['Idempotency-Key' => '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['items.0.unit_price']);
+})->with([
+    'missing' => [['sku' => 'MUG-1', 'quantity' => 1]],
+    'not a price' => [['sku' => 'MUG-1', 'quantity' => 1, 'unit_price' => '$16.99']],
+]);
+
+it('treats the expected unit price as part of the request identity', function (): void {
+    Checkout::product('MUG-1', '16.99', 10);
+    $buyer = Checkout::buyer();
+    $key = '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10';
+    $first = Checkout::place($buyer, Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]]), $key)->assertCreated()->json();
+
+    expect(Checkout::place($buyer, Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1, 'unit_price' => '16.99']]), $key)->assertOk()->json())->toBe($first);
+    Checkout::place($buyer, Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1, 'unit_price' => '15.00']]), $key)
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['idempotency_key']);
+});
+
+it('still replays a paid order after the product price changes', function (): void {
+    Checkout::product('MUG-1', '16.99', 10);
+    $buyer = Checkout::buyer();
+    $key = '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10';
+    $payload = Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]]);
+    $first = Checkout::place($buyer, $payload, $key)->assertCreated()->json();
+
+    ProductModel::query()->where('sku', 'MUG-1')->update(['price_cents' => 2500]);
+
+    expect(Checkout::place($buyer, $payload, $key)->assertOk()->json())->toBe($first);
 });

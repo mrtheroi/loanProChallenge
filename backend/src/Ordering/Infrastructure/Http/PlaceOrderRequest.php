@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ecommerce\Ordering\Infrastructure\Http;
 
 use Ecommerce\Catalog\Domain\InvalidProductAttribute;
+use Ecommerce\Catalog\Domain\Money;
 use Ecommerce\Catalog\Domain\Sku;
 use Ecommerce\Ordering\Application\PlaceOrderCommand;
 use Ecommerce\Ordering\Domain\InvalidOrderInput;
@@ -22,9 +23,10 @@ final class PlaceOrderRequest extends FormRequest
     {
         return [
             'items' => ['required', 'array', 'list', 'min:1', 'max:'.self::MAX_LINES],
-            'items.*' => ['required', 'array:sku,quantity'],
+            'items.*' => ['required', 'array:sku,quantity,unit_price'],
             'items.*.sku' => ['required', 'string', 'distinct:ignore_case'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:'.self::MAX_QUANTITY],
+            'items.*.unit_price' => ['required', 'string'],
             'card' => ['required', 'array:number,exp_month,exp_year,cvc'],
             'card.number' => ['required', 'string'],
             'card.exp_month' => ['required', 'integer'],
@@ -41,10 +43,11 @@ final class PlaceOrderRequest extends FormRequest
             throw InvalidOrderInput::because('idempotency_key', 'the Idempotency-Key header must be a UUID');
         }
 
-        /** @var list<array{sku: string, quantity: int|string}> $items */
+        /** @var list<array{sku: string, quantity: int|string, unit_price: string}> $items */
         $items = $this->validated('items');
 
         $quantities = [];
+        $expectedPrices = [];
         foreach ($items as $index => $item) {
             try {
                 $sku = Sku::fromString($item['sku'])->value();
@@ -56,6 +59,12 @@ final class PlaceOrderRequest extends FormRequest
                 throw InvalidOrderInput::because("items.{$index}.sku", 'repeats the sku of another line');
             }
 
+            try {
+                $expectedPrices[$sku] = Money::fromDecimalString($item['unit_price'])->cents();
+            } catch (InvalidProductAttribute $exception) {
+                throw InvalidOrderInput::because("items.{$index}.unit_price", $exception->reason());
+            }
+
             $quantities[$sku] = (int) $item['quantity'];
         }
 
@@ -63,6 +72,7 @@ final class PlaceOrderRequest extends FormRequest
             AuthenticatedUser::id($this),
             strtolower($key),
             $quantities,
+            $expectedPrices,
             PaymentCard::fromInput(
                 $this->string('card.number')->toString(),
                 $this->integer('card.exp_month'),

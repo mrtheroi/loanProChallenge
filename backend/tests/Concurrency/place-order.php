@@ -9,7 +9,7 @@ use Ecommerce\Ordering\Domain\PaymentCard;
 use Ecommerce\Ordering\Domain\StockLedger;
 use Illuminate\Contracts\Console\Kernel;
 
-[, $userId, $key, $sku, $quantity, $holdMs] = $argv;
+[, $userId, $key, $sku, $quantity, $expectedPriceCents, $holdMs] = $argv;
 
 require __DIR__.'/../../vendor/autoload.php';
 $app = require __DIR__.'/../../bootstrap/app.php';
@@ -42,6 +42,7 @@ try {
         (int) $userId,
         $key,
         [$sku => (int) $quantity],
+        [$sku => (int) $expectedPriceCents],
         PaymentCard::fromInput('4242424242424242', 12, 2030, '123'),
         new DateTimeImmutable('2026-10-16'),
     ));

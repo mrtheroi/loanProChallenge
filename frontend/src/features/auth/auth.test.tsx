@@ -2,6 +2,7 @@ import { focusManager } from '@tanstack/react-query'
 import { act, screen, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
+import { useCartStore } from '@/features/cart/cartStore'
 import { admin, authHandlers, buyer } from '@/test/auth-handlers'
 import { renderRoute } from '@/test/render'
 import { server } from '@/test/server'
@@ -289,5 +290,18 @@ describe('session state', () => {
     await user.click(screen.getByRole('button', { name: 'Retry session check' }))
 
     expect(await screen.findByText('Demo Buyer')).toBeInTheDocument()
+  })
+
+  it('clears the cart but keeps pending payment attempts when the user logs out', async () => {
+    useCartStore.getState().add({ sku: 'MUG-1', name: 'Mug', price: '16.99', stock: 5 })
+    localStorage.setItem('loanpro-checkout-attempt:2:abc', 'k')
+    server.use(...authHandlers(buyer).handlers)
+    const { user } = renderRoute('/')
+
+    await user.click(await screen.findByRole('button', { name: 'Log out' }))
+    await screen.findByRole('link', { name: 'Log in' })
+
+    expect(useCartStore.getState().items).toEqual({})
+    expect(localStorage.getItem('loanpro-checkout-attempt:2:abc')).toBe('k')
   })
 })

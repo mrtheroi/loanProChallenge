@@ -1,7 +1,16 @@
 import { Link } from 'react-router'
 import { isExpiredSession } from '@/app/queryClient'
+import { useCartStore } from '@/features/cart/cartStore'
 import { Button } from '@/shared/ui/button'
 import { useCurrentUser, useLogout } from '../hooks/useAuth'
+
+function clearCart() {
+  useCartStore.getState().clear()
+}
+
+function clearCartIfSignedOut(error: unknown) {
+  if (isExpiredSession(error)) clearCart()
+}
 
 export function AuthMenu() {
   const { data: user, isPending, isError, refetch } = useCurrentUser()
@@ -32,13 +41,18 @@ export function AuthMenu() {
 
   return (
     <nav className="flex items-center gap-3">
+      {user.role === 'buyer' && (
+        <Button asChild variant="ghost">
+          <Link to="/orders">My orders</Link>
+        </Button>
+      )}
       {user.role === 'admin' && (
         <Button asChild variant="ghost">
           <Link to="/admin">Admin</Link>
         </Button>
       )}
       <span className="text-sm">{user.name}</span>
-      <Button variant="outline" disabled={logout.isPending} onClick={() => logout.mutate()}>
+      <Button variant="outline" disabled={logout.isPending} onClick={() => logout.mutate(undefined, { onSuccess: clearCart, onError: clearCartIfSignedOut })}>
         Log out
       </Button>
       {logout.isError && !isExpiredSession(logout.error) && (

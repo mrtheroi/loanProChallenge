@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Ecommerce\Ordering\Infrastructure\Http;
 
+use Ecommerce\Catalog\Domain\Money;
 use Ecommerce\Ordering\Domain\IdempotencyKeyReused;
 use Ecommerce\Ordering\Domain\InsufficientStock;
 use Ecommerce\Ordering\Domain\InvalidOrderInput;
 use Ecommerce\Ordering\Domain\OrderNotFound;
 use Ecommerce\Ordering\Domain\PaymentDeclined;
+use Ecommerce\Ordering\Domain\PriceChange;
+use Ecommerce\Ordering\Domain\PricesChanged;
 use Ecommerce\Ordering\Domain\Unavailable;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Http\JsonResponse;
@@ -36,6 +39,16 @@ final class OrderingExceptions
             : null);
         $exceptions->render(fn (OrderNotFound $exception, Request $request): ?JsonResponse => $request->is('api/*')
             ? new JsonResponse(['message' => 'Order not found.'], 404)
+            : null);
+        $exceptions->render(fn (PricesChanged $exception, Request $request): ?JsonResponse => $request->is('api/*')
+            ? new JsonResponse([
+                'message' => $exception->getMessage(),
+                'price_changes' => array_map(fn (PriceChange $change): array => [
+                    'sku' => $change->sku,
+                    'expected' => Money::fromCents($change->expectedCents)->toDecimalString(),
+                    'current' => Money::fromCents($change->currentCents)->toDecimalString(),
+                ], $exception->changes),
+            ], 409)
             : null);
         $exceptions->render(fn (PaymentDeclined $exception, Request $request): ?JsonResponse => $request->is('api/*')
             ? new JsonResponse(['message' => $exception->getMessage()], 402)

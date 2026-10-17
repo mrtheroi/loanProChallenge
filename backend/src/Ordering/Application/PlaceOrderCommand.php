@@ -6,17 +6,28 @@ namespace Ecommerce\Ordering\Application;
 
 use DateTimeImmutable;
 use Ecommerce\Ordering\Domain\PaymentCard;
+use InvalidArgumentException;
 
 final readonly class PlaceOrderCommand
 {
-    /** @param  array<string, int>  $quantitiesBySku  canonical SKU => quantity */
+    /**
+     * @param  array<string, int>  $quantitiesBySku  canonical SKU => quantity
+     * @param  array<string, int>  $expectedPriceCentsBySku  canonical SKU => unit price the buyer saw
+     */
     public function __construct(
         public int $userId,
         public string $idempotencyKey,
         public array $quantitiesBySku,
+        public array $expectedPriceCentsBySku,
         public PaymentCard $card,
         public DateTimeImmutable $today,
-    ) {}
+    ) {
+        foreach (array_keys($quantitiesBySku) as $sku) {
+            if (! array_key_exists($sku, $expectedPriceCentsBySku)) {
+                throw new InvalidArgumentException("Missing expected price for {$sku}.");
+            }
+        }
+    }
 
     /**
      * Identifies the request without any card secret: only brand, last four
@@ -26,7 +37,7 @@ final readonly class PlaceOrderCommand
     {
         $lines = [];
         foreach ($this->quantitiesBySku as $sku => $quantity) {
-            $lines[] = [(string) $sku, $quantity];
+            $lines[] = [(string) $sku, $quantity, $this->expectedPriceCentsBySku[$sku]];
         }
         usort($lines, fn (array $a, array $b): int => strcmp($a[0], $b[0]));
 

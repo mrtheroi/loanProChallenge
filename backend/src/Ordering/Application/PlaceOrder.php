@@ -12,6 +12,8 @@ use Ecommerce\Ordering\Domain\Order;
 use Ecommerce\Ordering\Domain\OrderLine;
 use Ecommerce\Ordering\Domain\OrderRepository;
 use Ecommerce\Ordering\Domain\PaymentGateway;
+use Ecommerce\Ordering\Domain\PriceChange;
+use Ecommerce\Ordering\Domain\PricesChanged;
 use Ecommerce\Ordering\Domain\StockLedger;
 use Ecommerce\Ordering\Domain\TransactionRunner;
 use Ecommerce\Ordering\Domain\Unavailable;
@@ -73,6 +75,18 @@ final readonly class PlaceOrder
 
         if ($unavailable !== []) {
             throw InsufficientStock::for($unavailable);
+        }
+
+        $changes = [];
+        foreach ($lines as $line) {
+            $expected = $command->expectedPriceCentsBySku[$line->sku];
+            if ($expected !== $line->unitPriceCents) {
+                $changes[] = new PriceChange($line->sku, $expected, $line->unitPriceCents);
+            }
+        }
+
+        if ($changes !== []) {
+            throw PricesChanged::for($changes);
         }
 
         $total = self::total($lines);
