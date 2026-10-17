@@ -17,6 +17,47 @@ afterEach(function (): void {
 });
 
 /**
+ * Reads the given pipes until each one closes, or until the deadline passes.
+ *
+ * @param  array<int, resource>  $streams
+ * @return array<int, string>|null null when the deadline passed
+ */
+function drainUntil(array $streams, float $deadline, bool $untilFirstLine = false): ?array
+{
+    $buffers = array_fill_keys(array_keys($streams), '');
+    foreach ($streams as $stream) {
+        stream_set_blocking($stream, false);
+    }
+
+    while ($streams !== []) {
+        $remaining = $deadline - microtime(true);
+        if ($remaining <= 0) {
+            return null;
+        }
+
+        $read = $streams;
+        $write = $except = null;
+        if (stream_select($read, $write, $except, (int) $remaining, (int) (fmod($remaining, 1) * 1_000_000)) === false) {
+            return null;
+        }
+
+        foreach ($read as $stream) {
+            $index = array_search($stream, $streams, true);
+            $chunk = (string) fread($stream, 8192);
+            $buffers[$index] .= $chunk;
+
+            if ($chunk === '' && feof($stream)) {
+                unset($streams[$index]);
+            } elseif ($untilFirstLine && str_contains($buffers[$index], "\n")) {
+                unset($streams[$index]);
+            }
+        }
+    }
+
+    return $buffers;
+}
+
+/**
  * @param  list<array{user: int, key: string, sku: string, quantity: int}>  $requests
  * @return list<array<string, mixed>>
  */
@@ -28,37 +69,37 @@ function placeConcurrently(array $requests, int $holdMs = 300): array
     foreach ($requests as $request) {
         $command = [PHP_BINARY, base_path('tests/Concurrency/place-order.php'), (string) $request['user'], $request['key'], $request['sku'], (string) $request['quantity'], (string) $holdMs];
         $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, base_path(), $env);
-        stream_set_timeout($pipes[1], CHILD_TIMEOUT_SECONDS);
-        stream_set_timeout($pipes[2], CHILD_TIMEOUT_SECONDS);
         $processes[] = [$process, $pipes];
     }
 
-    foreach ($processes as [, $pipes]) {
-        expect(trim((string) fgets($pipes[2])))->toBe('ready', 'a checkout process did not start in time');
-    }
+    $deadline = microtime(true) + CHILD_TIMEOUT_SECONDS;
 
-    foreach ($processes as [, $pipes]) {
-        fwrite($pipes[0], "go\n");
-        fclose($pipes[0]);
-    }
-
-    $results = [];
-    foreach ($processes as [$process, $pipes]) {
-        $output = (string) stream_get_contents($pipes[1]);
-        $timedOut = stream_get_meta_data($pipes[1])['timed_out'];
-        $errors = $timedOut ? '' : (string) stream_get_contents($pipes[2]);
-
-        if ($timedOut) {
-            proc_terminate($process);
+    try {
+        foreach ($processes as [, $pipes]) {
+            $ready = drainUntil([2 => $pipes[2]], $deadline, untilFirstLine: true);
+            expect(trim($ready[2] ?? ''))->toBe('ready', 'a checkout process did not start in time');
         }
 
-        proc_close($process);
-        $results[] = $timedOut
-            ? ['outcome' => 'timeout']
-            : (json_decode($output, true) ?? ['outcome' => 'crash', 'output' => $output.$errors]);
-    }
+        foreach ($processes as [, $pipes]) {
+            fwrite($pipes[0], "go\n");
+            fclose($pipes[0]);
+        }
 
-    return $results;
+        $results = [];
+        foreach ($processes as [, $pipes]) {
+            $output = drainUntil([1 => $pipes[1], 2 => $pipes[2]], $deadline);
+            $results[] = $output === null
+                ? ['outcome' => 'timeout']
+                : (json_decode($output[1], true) ?? ['outcome' => 'crash', 'output' => $output[1].$output[2]]);
+        }
+
+        return $results;
+    } finally {
+        foreach ($processes as [$process]) {
+            proc_terminate($process);
+            proc_close($process);
+        }
+    }
 }
 
 it('sells the last unit exactly once when two buyers check out at the same time', function (): void {

@@ -33,7 +33,7 @@ final class Checkout
     {
         return [
             'items' => $items,
-            'card' => array_merge(['number' => '4242 4242 4242 4242', 'exp_month' => 12, 'exp_year' => 2030, 'cvc' => '123'], $card),
+            'card' => array_merge(['number' => '4242 4242 4242 4242', 'exp_month' => 12, 'exp_year' => (int) now()->addYears(4)->format('Y'), 'cvc' => '123'], $card),
         ];
     }
 
