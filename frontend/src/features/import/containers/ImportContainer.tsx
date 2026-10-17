@@ -13,7 +13,8 @@ export function ImportContainer() {
   const queryClient = useQueryClient()
   const upload = useMutation({
     mutationFn: importProducts,
-    onSuccess: async () => {
+    // Rows are written one by one, so even a failed import may have changed the catalog.
+    onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: ['products'] })
       await queryClient.invalidateQueries({ queryKey: ['product'] })
       await queryClient.invalidateQueries({ queryKey: ['categories'] })
@@ -36,6 +37,7 @@ export function ImportContainer() {
           id="csv-file"
           type="file"
           accept=".csv,text/csv"
+          disabled={upload.isPending}
           aria-invalid={fileError !== undefined}
           aria-describedby={fileError ? 'csv-file-error' : undefined}
           onChange={(event) => {

@@ -139,4 +139,51 @@ describe('product import', () => {
 
     expect(screen.queryByRole('region', { name: 'Import summary' })).not.toBeInTheDocument()
   })
+  it('refreshes the categories even when the import fails after writing some rows', async () => {
+    const categories = ['Kitchen']
+    server.use(
+      http.get('/api/categories', () => HttpResponse.json({ data: [...categories] })),
+      http.post('/api/admin/products/import', () => {
+        categories.push('Footwear')
+        return HttpResponse.json({ message: 'Server Error' }, { status: 500 })
+      }),
+      ...authHandlers(admin).handlers,
+    )
+    const { user, router } = renderRoute('/admin/products/new')
+    const suggestions = () => Array.from(document.querySelectorAll('#category-options option'), (option) => (option as HTMLOptionElement).value)
+    await waitFor(() => expect(suggestions()).toEqual(['Kitchen']))
+
+    await act(() => router.navigate('/admin/import'))
+    await user.upload(await screen.findByLabelText('CSV file'), csv('x'))
+    await user.click(screen.getByRole('button', { name: 'Import' }))
+    await screen.findByRole('alert')
+    await act(() => router.navigate('/admin/products/new'))
+
+    await waitFor(() => expect(suggestions()).toEqual(['Kitchen', 'Footwear']))
+  })
+  it('locks the file and the import button while an import is running', async () => {
+    let finish: () => void = () => undefined
+    const held = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const uploads: string[] = []
+    server.use(
+      http.post('/api/admin/products/import', async () => {
+        uploads.push('import')
+        await held
+        return HttpResponse.json(report)
+      }),
+      ...authHandlers(admin).handlers,
+    )
+    const { user } = renderRoute('/admin/import')
+
+    await user.upload(await screen.findByLabelText('CSV file'), csv('first'))
+    await user.click(screen.getByRole('button', { name: 'Import' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Import' })).toBeDisabled())
+    expect(screen.getByLabelText('CSV file')).toBeDisabled()
+
+    finish()
+    expect(await screen.findByRole('region', { name: 'Import summary' })).toBeInTheDocument()
+    expect(uploads).toEqual(['import'])
+  })
 })
