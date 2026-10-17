@@ -3,7 +3,7 @@ import { formatCents, toCents } from '@/shared/lib/money'
 import { Button } from '@/shared/ui/button'
 import { useCartStore } from '../cartStore'
 import { QuantityInput } from '../components/QuantityInput'
-import { MAX_QUANTITY_PER_LINE } from '../limits'
+import { maxQuantity } from '../limits'
 import { cartSubtotalCents, lineTotalCents } from '../totals'
 
 export function CartContainer() {
@@ -39,7 +39,7 @@ export function CartContainer() {
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 text-sm">
                 Quantity
-                <QuantityInput value={line.quantity} max={Math.min(line.stock, MAX_QUANTITY_PER_LINE)} onCommit={(quantity) => void setQuantity(line.sku, quantity)} />
+                <QuantityInput value={line.quantity} max={maxQuantity(line.stock)} onCommit={(quantity) => void setQuantity(line.sku, quantity)} />
               </label>
               <span className="w-24 text-right font-medium">{formatCents(lineTotalCents(line))}</span>
               <Button variant="ghost" onClick={() => remove(line.sku)}>

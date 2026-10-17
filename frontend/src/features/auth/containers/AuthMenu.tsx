@@ -1,7 +1,14 @@
 import { Link } from 'react-router'
 import { isExpiredSession } from '@/app/queryClient'
+import { useCartStore } from '@/features/cart/cartStore'
+import { settlePayment } from '@/features/checkout/idempotency'
 import { Button } from '@/shared/ui/button'
 import { useCurrentUser, useLogout } from '../hooks/useAuth'
+
+function forgetLocalData() {
+  useCartStore.getState().clear()
+  settlePayment()
+}
 
 export function AuthMenu() {
   const { data: user, isPending, isError, refetch } = useCurrentUser()
@@ -43,7 +50,7 @@ export function AuthMenu() {
         </Button>
       )}
       <span className="text-sm">{user.name}</span>
-      <Button variant="outline" disabled={logout.isPending} onClick={() => logout.mutate()}>
+      <Button variant="outline" disabled={logout.isPending} onClick={() => logout.mutate(undefined, { onSuccess: forgetLocalData, onError: (error) => isExpiredSession(error) && forgetLocalData() })}>
         Log out
       </Button>
       {logout.isError && !isExpiredSession(logout.error) && (

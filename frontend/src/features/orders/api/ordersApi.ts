@@ -1,4 +1,5 @@
 import { apiFetch } from '@/shared/api/http'
+import type { PageMeta } from '@/shared/api/pagination'
 
 export type OrderLine = { sku: string; name: string; unit_price: string; quantity: number; line_total: string }
 
@@ -11,7 +12,7 @@ export type Order = {
   items: OrderLine[]
 }
 
-export type OrderPage = { data: Order[]; meta: { current_page: number; per_page: number; total: number; last_page: number } }
+export type OrderPage = { data: Order[]; meta: PageMeta }
 
 export type CheckoutPayload = {
   items: Array<{ sku: string; quantity: number }>

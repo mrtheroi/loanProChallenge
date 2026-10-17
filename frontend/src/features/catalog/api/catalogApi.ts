@@ -1,4 +1,5 @@
 import { apiFetch } from '@/shared/api/http'
+import type { PageMeta } from '@/shared/api/pagination'
 
 export type Product = {
   sku: string
@@ -12,7 +13,7 @@ export type Product = {
 
 export type ProductPage = {
   data: Product[]
-  meta: { current_page: number; per_page: number; total: number; last_page: number }
+  meta: PageMeta
 }
 
 export function searchProducts(params: URLSearchParams): Promise<ProductPage> {

@@ -146,3 +146,16 @@ describe('catalog validation and detail errors', () => {
     expect(await screen.findByRole('heading', { name: 'Mug' })).toBeInTheDocument()
   })
 })
+
+describe('catalog URL', () => {
+  it('falls back to name order for an unknown sort value', async () => {
+    const catalog = catalogHandlers([product()])
+    server.use(...authHandlers(null).handlers, ...catalog.handlers)
+    const { user } = renderRoute('/?sort=stock')
+
+    expect(screen.getByLabelText('Sort by')).toHaveValue('name')
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+
+    await waitFor(() => expect(catalog.requests.at(-1)?.get('sort')).toBeNull())
+  })
+})

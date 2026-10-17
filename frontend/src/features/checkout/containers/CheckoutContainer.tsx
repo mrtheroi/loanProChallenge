@@ -9,7 +9,7 @@ import { formatCents } from '@/shared/lib/money'
 import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { CardForm, type Card } from '../components/CardForm'
-import { idempotencyKeyFor, paymentFingerprint, settlePayment } from '../idempotency'
+import { idempotencyKeyFor, paymentFingerprint, settlePayment, settlesPayment } from '../idempotency'
 
 type Problem = { message: string; unavailable: Unavailable[] }
 
@@ -39,7 +39,7 @@ export function CheckoutContainer() {
       await navigate(`/orders/${order.id}`, { state: { placed: true } })
     },
     onError: (error) => {
-      if (error instanceof ApiError && error.status >= 400 && error.status < 500) settlePayment()
+      if (error instanceof ApiError && settlesPayment(error.status)) settlePayment()
       setProblem(problemFrom(error))
     },
   })

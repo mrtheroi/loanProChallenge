@@ -8,7 +8,7 @@ import { fetchProduct } from '../api/catalogApi'
 
 export function ProductDetailContainer() {
   const { sku = '' } = useParams()
-  const product = useQuery({ queryKey: ['product', sku], queryFn: () => fetchProduct(sku), retry: false })
+  const product = useQuery({ queryKey: ['product', sku], queryFn: () => fetchProduct(sku) })
 
   if (product.isPending) return <p className="text-muted-foreground">Loading…</p>
 

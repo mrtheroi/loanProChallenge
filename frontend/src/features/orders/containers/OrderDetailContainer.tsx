@@ -10,11 +10,11 @@ export function OrderDetailContainer() {
   const { id = '' } = useParams()
   const location = useLocation()
   const placed = (location.state as { placed?: boolean } | null)?.placed === true
-  const order = useQuery({ queryKey: ['order', id], queryFn: () => fetchOrder(id), retry: false })
+  const order = useQuery({ queryKey: ['order', id], queryFn: () => fetchOrder(id), staleTime: Infinity })
 
   if (order.isPending) return <p className="text-muted-foreground">Loading…</p>
 
-  if (order.isError) {
+  if (order.data === undefined) {
     const notFound = order.error instanceof ApiError && order.error.status === 404
 
     return (

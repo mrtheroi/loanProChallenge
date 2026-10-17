@@ -21,7 +21,7 @@ export function filtersFrom(params: URLSearchParams): CatalogFilters {
     min_price: params.get('min_price') ?? '',
     max_price: params.get('max_price') ?? '',
     in_stock: params.get('in_stock') === '1',
-    sort: params.get('sort') ?? 'name',
+    sort: SORT_OPTIONS.some((option) => option.value === params.get('sort')) ? (params.get('sort') ?? 'name') : 'name',
   }
 }
 

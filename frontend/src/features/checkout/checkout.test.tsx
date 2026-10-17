@@ -218,7 +218,9 @@ describe('checkout', () => {
     await payWith(user)
 
     expect(await screen.findByText('Thank you! Your order is confirmed.')).toBeInTheDocument()
+    await new Promise((resolve) => setTimeout(resolve, 100))
     expect(screen.getByRole('heading', { name: 'Order #77' })).toBeInTheDocument()
+    expect(screen.queryByText('We could not load this order.')).not.toBeInTheDocument()
   })
 
   it('rejects an expired card before calling the API', async () => {
@@ -234,6 +236,32 @@ describe('checkout', () => {
     await user.click(screen.getByRole('button', { name: /^Pay / }))
 
     expect(await screen.findByText('This card has expired.')).toBeInTheDocument()
+    await user.clear(screen.getByLabelText('Expiry year'))
+    await user.type(screen.getByLabelText('Expiry year'), '2101')
+    await user.click(screen.getByRole('button', { name: /^Pay / }))
+    expect(await screen.findByText('Enter a year between 2000 and 2100.')).toBeInTheDocument()
     expect(orders.placed).toHaveLength(0)
+  })
+
+  it('keeps the key when a retry is throttled before reaching the payment', async () => {
+    fillCart()
+    const keys: Array<string | null> = []
+    server.use(
+      http.post('/api/orders', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'))
+        return keys.length === 2 ? HttpResponse.json({ message: 'Too Many Attempts.' }, { status: 429 }) : HttpResponse.error()
+      }),
+      ...authHandlers(buyer).handlers,
+    )
+    const { user } = renderRoute('/checkout')
+
+    await payWith(user)
+    await screen.findByRole('alert')
+    await user.click(screen.getByRole('button', { name: /^Pay / }))
+    await screen.findByText('Too Many Attempts.')
+    await user.click(screen.getByRole('button', { name: /^Pay / }))
+    await waitFor(() => expect(keys).toHaveLength(3))
+
+    expect(new Set(keys).size).toBe(1)
   })
 })

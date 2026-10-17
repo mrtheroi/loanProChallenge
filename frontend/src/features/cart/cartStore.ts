@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { isPrice } from '@/shared/lib/money'
-import { MAX_CART_LINES, MAX_QUANTITY_PER_LINE } from './limits'
+import { MAX_CART_LINES, maxQuantity } from './limits'
 
 export type CartProduct = { sku: string; name: string; price: string; stock: number }
 export type CartLine = CartProduct & { quantity: number }
@@ -13,10 +13,6 @@ type CartState = {
   remove: (sku: string) => void
   limit: (sku: string, available: number) => void
   clear: () => void
-}
-
-function maxQuantity(stock: number): number {
-  return Math.min(stock, MAX_QUANTITY_PER_LINE)
 }
 
 export const useCartStore = create<CartState>()(

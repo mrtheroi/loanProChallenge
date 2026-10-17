@@ -8,7 +8,7 @@ import type { CheckoutPayload } from '@/features/orders/api/ordersApi'
 const schema = z.object({
   number: z.string().refine((value) => /^[\d -]+$/.test(value) && /^\d{13,19}$/.test(value.replace(/[ -]/g, '')), 'Enter 13 to 19 digits.'),
   exp_month: z.coerce.number<string>().int('Enter a month from 1 to 12.').min(1, 'Enter a month from 1 to 12.').max(12, 'Enter a month from 1 to 12.'),
-  exp_year: z.coerce.number<string>().int('Enter a 4-digit year.').min(2000, 'Enter a 4-digit year.').max(2100, 'Enter a 4-digit year.'),
+  exp_year: z.coerce.number<string>().int('Enter a year between 2000 and 2100.').min(2000, 'Enter a year between 2000 and 2100.').max(2100, 'Enter a year between 2000 and 2100.'),
   cvc: z.string().regex(/^\d{3,4}$/, 'Enter 3 or 4 digits.'),
 }).refine(
   (card) => {
