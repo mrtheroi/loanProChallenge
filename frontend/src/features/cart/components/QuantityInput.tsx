@@ -1,10 +1,17 @@
 import { useState } from 'react'
 import { Input } from '@/shared/ui/input'
 
-type QuantityInputProps = { value: number; max: number; onChange: (quantity: number) => void }
+type QuantityInputProps = { value: number; max: number; onCommit: (quantity: number) => number }
 
-export function QuantityInput({ value, max, onChange }: QuantityInputProps) {
-  const [draft, setDraft] = useState(String(value))
+export function QuantityInput({ value, max, onCommit }: QuantityInputProps) {
+  const [draft, setDraft] = useState<string | null>(null)
+
+  const commit = () => {
+    if (draft === null) return
+    const quantity = Number.parseInt(draft, 10)
+    setDraft(null)
+    if (Number.isFinite(quantity)) onCommit(quantity)
+  }
 
   return (
     <Input
@@ -13,13 +20,12 @@ export function QuantityInput({ value, max, onChange }: QuantityInputProps) {
       min={1}
       max={max}
       className="w-20"
-      value={draft}
-      onChange={(event) => {
-        setDraft(event.target.value)
-        const quantity = Number.parseInt(event.target.value, 10)
-        if (Number.isFinite(quantity) && quantity > 0) onChange(quantity)
+      value={draft ?? String(value)}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') commit()
       }}
-      onBlur={() => setDraft(String(value))}
     />
   )
 }

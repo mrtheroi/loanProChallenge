@@ -7,7 +7,7 @@ export type CartLine = CartProduct & { quantity: number }
 type CartState = {
   items: Record<string, CartLine>
   add: (product: CartProduct) => void
-  setQuantity: (sku: string, quantity: number) => void
+  setQuantity: (sku: string, quantity: number) => number
   remove: (sku: string) => void
   limit: (sku: string, available: number) => void
   clear: () => void
@@ -15,7 +15,7 @@ type CartState = {
 
 export const useCartStore = create<CartState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       items: {},
       add: (product) =>
         set((state) => {
@@ -24,13 +24,14 @@ export const useCartStore = create<CartState>()(
 
           return { items: { ...state.items, [product.sku]: { ...product, quantity } } }
         }),
-      setQuantity: (sku, quantity) =>
-        set((state) => {
-          const line = state.items[sku]
-          if (line === undefined) return state
+      setQuantity: (sku, quantity) => {
+        const line = get().items[sku]
+        if (line === undefined) return 0
+        const clamped = Math.max(1, Math.min(quantity, line.stock))
+        set((state) => ({ items: { ...state.items, [sku]: { ...line, quantity: clamped } } }))
 
-          return { items: { ...state.items, [sku]: { ...line, quantity: Math.max(1, Math.min(quantity, line.stock)) } } }
-        }),
+        return clamped
+      },
       remove: (sku) =>
         set((state) => {
           const items = { ...state.items }

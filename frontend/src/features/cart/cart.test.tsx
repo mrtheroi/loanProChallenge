@@ -30,6 +30,7 @@ describe('cart', () => {
     const mugLine = await screen.findByRole('listitem', { name: 'Mug' })
     await user.clear(within(mugLine).getByLabelText('Quantity'))
     await user.type(within(mugLine).getByLabelText('Quantity'), '3')
+    await user.tab()
 
     expect(within(mugLine).getByText('$50.97')).toBeInTheDocument()
     expect(screen.getByText('Subtotal: $51.07')).toBeInTheDocument()
@@ -47,5 +48,26 @@ describe('cart', () => {
 
     expect(await screen.findByText('Your cart is empty.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Browse products' })).toHaveAttribute('href', '/')
+  })
+
+  it('keeps focus while typing a multi-digit quantity and shows the clamped value after leaving the field', async () => {
+    server.use(...authHandlers(null).handlers, ...catalogHandlers([product({ stock: 30 })]).handlers)
+    const { user } = renderRoute('/')
+
+    await user.click(within(await screen.findByRole('article', { name: 'Mug' })).getByRole('button', { name: 'Add to cart' }))
+    await user.click(screen.getByRole('link', { name: 'Cart (1)' }))
+    const input = within(await screen.findByRole('listitem', { name: 'Mug' })).getByLabelText('Quantity')
+
+    await user.clear(input)
+    await user.type(input, '25')
+    expect(input).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByText('Subtotal: $424.75')).toBeInTheDocument()
+
+    await user.clear(input)
+    await user.type(input, '99')
+    await user.tab()
+    expect(input).toHaveValue(30)
+    expect(screen.getByText('Subtotal: $509.70')).toBeInTheDocument()
   })
 })

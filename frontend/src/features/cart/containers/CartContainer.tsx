@@ -37,7 +37,7 @@ export function CartContainer() {
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 text-sm">
                 Quantity
-                <QuantityInput key={line.quantity} value={line.quantity} max={line.stock} onChange={(quantity) => setQuantity(line.sku, quantity)} />
+                <QuantityInput value={line.quantity} max={line.stock} onCommit={(quantity) => setQuantity(line.sku, quantity)} />
               </label>
               <span className="w-24 text-right font-medium">{formatCents(toCents(line.price) * BigInt(line.quantity))}</span>
               <Button variant="ghost" onClick={() => remove(line.sku)}>
