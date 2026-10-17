@@ -246,3 +246,18 @@ it('rejects two lines that resolve to the same sku even without the global trim'
 
     expect(checkoutSnapshot())->toBe($before);
 });
+
+it('handles all-digit skus as text when buying and when reporting shortages', function (): void {
+    Checkout::product('12345', '2.00', 1);
+
+    Checkout::place(Checkout::buyer(), Checkout::payload([['sku' => '12345', 'quantity' => 1]]))
+        ->assertCreated()
+        ->assertJsonPath('data.items.0.sku', '12345');
+
+    Checkout::place(Checkout::buyer(), Checkout::payload([['sku' => '12345', 'quantity' => 1], ['sku' => '67890', 'quantity' => 1]]))
+        ->assertStatus(409)
+        ->assertJsonPath('unavailable', [
+            ['sku' => '12345', 'requested' => 1, 'available' => 0],
+            ['sku' => '67890', 'requested' => 1, 'available' => 0],
+        ]);
+});

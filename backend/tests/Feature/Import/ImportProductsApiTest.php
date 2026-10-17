@@ -193,6 +193,7 @@ it('rejects the whole file when the header is not the expected one', function (s
 })->with([
     'missing column' => ["name,sku,description,category,price,stock\nMug,TM-029,,Kitchen,1,1\n", 'The CSV header is missing the column(s): weight_kg.'],
     'empty file' => ['', 'The CSV header is missing the column(s): name, sku, description, category, price, stock, weight_kg.'],
+    'only blank lines' => ["\n\n,,\n", 'The CSV header is missing the column(s): name, sku, description, category, price, stock, weight_kg.'],
     'trailing comma' => ["name,sku,description,category,price,stock,weight_kg,\nMug,TM-029,,Kitchen,1,1,,\n", 'The CSV header has unnamed column(s) at position(s): 8.'],
     'invalid utf-8 column' => ["name,sku,description,category,price,stock,weight_kg,caf\xE9\n", 'The CSV header has unknown column(s): caf?.'],
 ]);

@@ -47,8 +47,8 @@ final readonly class PlaceOrder
     {
         $orderId = $this->orders->claim($command->userId, $command->idempotencyKey, $requestHash, $command->card);
 
-        $skus = array_keys($command->quantitiesBySku);
-        sort($skus);
+        $skus = array_map(strval(...), array_keys($command->quantitiesBySku));
+        sort($skus, SORT_STRING);
         $items = $this->stock->lock($skus);
 
         $lines = [];
