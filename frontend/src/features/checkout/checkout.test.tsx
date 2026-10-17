@@ -159,4 +159,24 @@ describe('checkout', () => {
 
     expect(keys[1]).not.toBe(keys[0])
   })
+
+  it('keeps the key after a 5xx because the payment outcome is unknown', async () => {
+    fillCart()
+    const keys: Array<string | null> = []
+    server.use(
+      http.post('/api/orders', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'))
+        return HttpResponse.json({ message: 'Bad Gateway' }, { status: 502 })
+      }),
+      ...authHandlers(buyer).handlers,
+    )
+    const { user } = renderRoute('/checkout')
+
+    await payWith(user)
+    await screen.findByRole('alert')
+    await user.click(screen.getByRole('button', { name: /^Pay / }))
+    await waitFor(() => expect(keys).toHaveLength(2))
+
+    expect(keys[1]).toBe(keys[0])
+  })
 })

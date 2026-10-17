@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
+import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { authHandlers, buyer } from '@/test/auth-handlers'
 import { order, orderHandlers } from '@/test/order-handlers'
@@ -36,5 +37,30 @@ describe('my orders', () => {
     renderRoute('/orders/999')
 
     expect(await screen.findByRole('heading', { name: 'Order not found' })).toBeInTheDocument()
+  })
+
+  it('pages through orders and retries after a failure', async () => {
+    let failing = true
+    const pages: string[] = []
+    server.use(
+      http.get('/api/orders', ({ request }) => {
+        const page = new URL(request.url).searchParams.get('page') ?? '1'
+        pages.push(page)
+        if (failing) return HttpResponse.json({ message: 'Server Error' }, { status: 500 })
+        return HttpResponse.json({ data: [order({ id: page === '1' ? 41 : 30 })], meta: { current_page: Number(page), per_page: 1, total: 2, last_page: 2 } })
+      }),
+      ...authHandlers(buyer).handlers,
+    )
+    const { user } = renderRoute('/orders')
+
+    expect(await screen.findByText('We could not load your orders.')).toBeInTheDocument()
+    failing = false
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('listitem', { name: 'Order #41' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Next page' }))
+
+    expect(await screen.findByRole('listitem', { name: 'Order #30' })).toBeInTheDocument()
+    expect(pages.at(-1)).toBe('2')
   })
 })

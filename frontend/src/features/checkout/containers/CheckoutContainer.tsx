@@ -37,7 +37,7 @@ export function CheckoutContainer() {
       await navigate(`/orders/${order.id}`, { state: { placed: true } })
     },
     onError: (error) => {
-      if (error instanceof ApiError) settle()
+      if (error instanceof ApiError && error.status >= 400 && error.status < 500) settle()
       setProblem(problemFrom(error))
     },
   })
