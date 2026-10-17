@@ -3,6 +3,8 @@ import { formatCents, toCents } from '@/shared/lib/money'
 import { Button } from '@/shared/ui/button'
 import { useCartStore } from '../cartStore'
 import { QuantityInput } from '../components/QuantityInput'
+import { MAX_QUANTITY_PER_LINE } from '../limits'
+import { cartSubtotalCents, lineTotalCents } from '../totals'
 
 export function CartContainer() {
   const items = useCartStore((state) => state.items)
@@ -22,7 +24,7 @@ export function CartContainer() {
     )
   }
 
-  const subtotal = lines.reduce((total, line) => total + toCents(line.price) * BigInt(line.quantity), 0n)
+  const subtotal = cartSubtotalCents(lines)
 
   return (
     <section className="flex flex-col gap-6">
@@ -37,9 +39,9 @@ export function CartContainer() {
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 text-sm">
                 Quantity
-                <QuantityInput value={line.quantity} max={line.stock} onCommit={(quantity) => setQuantity(line.sku, quantity)} />
+                <QuantityInput value={line.quantity} max={Math.min(line.stock, MAX_QUANTITY_PER_LINE)} onCommit={(quantity) => void setQuantity(line.sku, quantity)} />
               </label>
-              <span className="w-24 text-right font-medium">{formatCents(toCents(line.price) * BigInt(line.quantity))}</span>
+              <span className="w-24 text-right font-medium">{formatCents(lineTotalCents(line))}</span>
               <Button variant="ghost" onClick={() => remove(line.sku)}>
                 Remove
               </Button>

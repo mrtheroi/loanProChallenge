@@ -1,13 +1,7 @@
+import type { Order } from '@/features/orders/api/ordersApi'
 import { http, HttpResponse } from 'msw'
 
-export type TestOrder = {
-  id: number
-  status: 'paid'
-  total: string
-  card: { brand: string; last4: string }
-  created_at: string
-  items: Array<{ sku: string; name: string; unit_price: string; quantity: number; line_total: string }>
-}
+export type TestOrder = Order
 
 export function order(overrides: Partial<TestOrder> = {}): TestOrder {
   return {

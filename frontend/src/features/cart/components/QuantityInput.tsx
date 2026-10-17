@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Input } from '@/shared/ui/input'
 
-type QuantityInputProps = { value: number; max: number; onCommit: (quantity: number) => number }
+type QuantityInputProps = { value: number; max: number; onCommit: (quantity: number) => void }
 
 export function QuantityInput({ value, max, onCommit }: QuantityInputProps) {
   const [draft, setDraft] = useState<string | null>(null)

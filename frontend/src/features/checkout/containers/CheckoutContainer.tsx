@@ -1,14 +1,15 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useCartStore } from '@/features/cart/cartStore'
+import { cartSubtotalCents, lineTotalCents } from '@/features/cart/totals'
 import { placeOrder, type CheckoutPayload, type Unavailable } from '@/features/orders/api/ordersApi'
 import { ApiError } from '@/shared/api/http'
-import { formatCents, toCents } from '@/shared/lib/money'
+import { formatCents } from '@/shared/lib/money'
 import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { CardForm, type Card } from '../components/CardForm'
-import { useIdempotencyKey } from '../idempotency'
+import { idempotencyKeyFor, paymentFingerprint, settlePayment } from '../idempotency'
 
 type Problem = { message: string; unavailable: Unavailable[] }
 
@@ -26,18 +27,19 @@ export function CheckoutContainer() {
   const clear = useCartStore((state) => state.clear)
   const limit = useCartStore((state) => state.limit)
   const navigate = useNavigate()
-  const { keyFor, settle } = useIdempotencyKey()
+  const queryClient = useQueryClient()
   const [problem, setProblem] = useState<Problem | null>(null)
 
   const checkout = useMutation({
     mutationFn: ({ key, payload }: { key: string; payload: CheckoutPayload }) => placeOrder(key, payload),
     onSuccess: async (order) => {
-      settle()
+      settlePayment()
+      queryClient.setQueryData(['order', String(order.id)], order)
       clear()
       await navigate(`/orders/${order.id}`, { state: { placed: true } })
     },
     onError: (error) => {
-      if (error instanceof ApiError && error.status >= 400 && error.status < 500) settle()
+      if (error instanceof ApiError && error.status >= 400 && error.status < 500) settlePayment()
       setProblem(problemFrom(error))
     },
   })
@@ -56,12 +58,12 @@ export function CheckoutContainer() {
     )
   }
 
-  const total = formatCents(lines.reduce((sum, line) => sum + toCents(line.price) * BigInt(line.quantity), 0n))
+  const total = formatCents(cartSubtotalCents(lines))
 
   const pay = (card: Card) => {
     const payload: CheckoutPayload = { items: lines.map((line) => ({ sku: line.sku, quantity: line.quantity })), card }
     setProblem(null)
-    checkout.mutate({ key: keyFor(JSON.stringify(payload)), payload })
+    checkout.mutate({ key: idempotencyKeyFor(paymentFingerprint(payload)), payload })
   }
 
   return (
@@ -74,7 +76,7 @@ export function CheckoutContainer() {
               <span>
                 {line.quantity} × {line.name}
               </span>
-              <span>{formatCents(toCents(line.price) * BigInt(line.quantity))}</span>
+              <span>{formatCents(lineTotalCents(line))}</span>
             </li>
           ))}
         </ul>

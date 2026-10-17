@@ -63,4 +63,36 @@ describe('my orders', () => {
     expect(await screen.findByRole('listitem', { name: 'Order #30' })).toBeInTheDocument()
     expect(pages.at(-1)).toBe('2')
   })
+
+  it('offers a way back from a page past the end instead of the empty message', async () => {
+    server.use(
+      http.get('/api/orders', ({ request }) => {
+        const page = new URL(request.url).searchParams.get('page') ?? '1'
+        return HttpResponse.json({ data: page === '1' ? [order()] : [], meta: { current_page: Number(page), per_page: 10, total: 1, last_page: 1 } })
+      }),
+      ...authHandlers(buyer).handlers,
+    )
+    const { user } = renderRoute('/orders?page=7')
+
+    expect(await screen.findByText('This page is past the end of your orders.')).toBeInTheDocument()
+    expect(screen.queryByText('You have not placed any orders yet.')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Go to the first page' }))
+
+    expect(await screen.findByRole('listitem', { name: 'Order #41' })).toBeInTheDocument()
+  })
+
+  it('offers a retry when an order cannot be loaded for a temporary reason', async () => {
+    let failing = true
+    server.use(
+      http.get('/api/orders/:id', () => (failing ? HttpResponse.json({ message: 'Server Error' }, { status: 500 }) : HttpResponse.json({ data: order() }))),
+      ...authHandlers(buyer).handlers,
+    )
+    const { user } = renderRoute('/orders/41')
+
+    expect(await screen.findByText('We could not load this order.')).toBeInTheDocument()
+    failing = false
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByRole('heading', { name: 'Order #41' })).toBeInTheDocument()
+  })
 })

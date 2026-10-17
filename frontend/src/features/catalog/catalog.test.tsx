@@ -117,3 +117,32 @@ describe('catalog states', () => {
     expect(await screen.findByRole('article', { name: 'Mug' })).toBeInTheDocument()
   })
 })
+
+describe('catalog validation and detail errors', () => {
+  it('shows the API validation message for a bad filter instead of a retry', async () => {
+    server.use(
+      http.get('/api/products', () => HttpResponse.json({ message: 'must be a non-negative decimal number with at most 2 decimals', errors: { min_price: ['must be a non-negative decimal number with at most 2 decimals'] } }, { status: 422 })),
+      ...authHandlers(null).handlers,
+      ...catalogHandlers([]).handlers,
+    )
+    renderRoute('/?min_price=abc')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Check your filters: must be a non-negative decimal number with at most 2 decimals')
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+  })
+
+  it('offers a retry when a product cannot be loaded for a temporary reason', async () => {
+    let failing = true
+    server.use(
+      http.get('/api/products/:sku', () => (failing ? HttpResponse.json({ message: 'Server Error' }, { status: 503 }) : HttpResponse.json({ data: product() }))),
+      ...authHandlers(null).handlers,
+    )
+    const { user } = renderRoute('/products/MUG-1')
+
+    expect(await screen.findByText('We could not load this product.')).toBeInTheDocument()
+    failing = false
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByRole('heading', { name: 'Mug' })).toBeInTheDocument()
+  })
+})

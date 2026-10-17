@@ -1,5 +1,6 @@
 import { screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { useCartStore } from '@/features/cart/cartStore'
 import { authHandlers } from '@/test/auth-handlers'
 import { catalogHandlers, product } from '@/test/catalog-handlers'
 import { renderRoute } from '@/test/render'
@@ -69,5 +70,15 @@ describe('cart', () => {
     await user.tab()
     expect(input).toHaveValue(30)
     expect(screen.getByText('Subtotal: $509.70')).toBeInTheDocument()
+  })
+
+  it('explains why a product cannot be added when the cart has 50 products', async () => {
+    for (let i = 0; i < 50; i++) useCartStore.getState().add({ sku: `P-${i}`, name: `P ${i}`, price: '1.00', stock: 5 })
+    server.use(...authHandlers(null).handlers, ...catalogHandlers([product()]).handlers)
+    renderRoute('/')
+
+    const mug = await screen.findByRole('article', { name: 'Mug' })
+    expect(within(mug).getByRole('button', { name: 'Add to cart' })).toBeDisabled()
+    expect(within(mug).getByText('Your cart can hold up to 50 different products.')).toBeInTheDocument()
   })
 })

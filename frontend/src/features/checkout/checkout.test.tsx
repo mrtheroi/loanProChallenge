@@ -129,8 +129,8 @@ describe('checkout', () => {
     await user.click(screen.getByRole('button', { name: /^Pay / }))
     await waitFor(() => expect(keys).toHaveLength(2))
 
-    await user.clear(screen.getByLabelText('CVC'))
-    await user.type(screen.getByLabelText('CVC'), '999')
+    await user.clear(screen.getByLabelText('Expiry month'))
+    await user.type(screen.getByLabelText('Expiry month'), '11')
     await user.click(screen.getByRole('button', { name: /^Pay / }))
     await waitFor(() => expect(keys).toHaveLength(3))
 
@@ -185,5 +185,55 @@ describe('checkout', () => {
     await waitFor(() => expect(keys).toHaveLength(2))
 
     expect(keys[1]).toBe(keys[0])
+  })
+
+  it('keeps the pending key across a reload and ignores card formatting changes', async () => {
+    fillCart()
+    const keys: Array<string | null> = []
+    server.use(
+      http.post('/api/orders', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'))
+        return HttpResponse.error()
+      }),
+      ...authHandlers(buyer).handlers,
+    )
+    const first = renderRoute('/checkout')
+    await payWith(first.user, '4242424242424242')
+    await screen.findByRole('alert')
+    first.unmount()
+
+    const second = renderRoute('/checkout')
+    await payWith(second.user, '4242 4242-4242 4242 ')
+    await waitFor(() => expect(keys).toHaveLength(2))
+
+    expect(keys[1]).toBe(keys[0])
+  })
+
+  it('shows the receipt from the payment response even if loading the order fails', async () => {
+    fillCart()
+    const orders = orderHandlers()
+    server.use(http.get('/api/orders/:id', () => HttpResponse.json({ message: 'Server Error' }, { status: 500 })), ...authHandlers(buyer).handlers, ...orders.handlers)
+    const { user } = renderRoute('/checkout')
+
+    await payWith(user)
+
+    expect(await screen.findByText('Thank you! Your order is confirmed.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Order #77' })).toBeInTheDocument()
+  })
+
+  it('rejects an expired card before calling the API', async () => {
+    fillCart()
+    const orders = orderHandlers()
+    server.use(...authHandlers(buyer).handlers, ...orders.handlers)
+    const { user } = renderRoute('/checkout')
+
+    await user.type(await screen.findByLabelText('Card number'), '4242 4242 4242 4242')
+    await user.type(screen.getByLabelText('Expiry month'), '1')
+    await user.type(screen.getByLabelText('Expiry year'), '2020')
+    await user.type(screen.getByLabelText('CVC'), '123')
+    await user.click(screen.getByRole('button', { name: /^Pay / }))
+
+    expect(await screen.findByText('This card has expired.')).toBeInTheDocument()
+    expect(orders.placed).toHaveLength(0)
   })
 })

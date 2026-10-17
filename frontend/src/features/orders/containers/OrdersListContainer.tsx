@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router'
-import { Pagination } from '@/features/catalog/components/Pagination'
+import { Pagination } from '@/shared/ui/Pagination'
 import { formatCents, toCents } from '@/shared/lib/money'
 import { Button } from '@/shared/ui/button'
 import { listOrders } from '../api/ordersApi'
@@ -20,7 +20,15 @@ export function OrdersListContainer() {
           <Button onClick={() => void orders.refetch()}>Try again</Button>
         </div>
       )}
-      {orders.data && orders.data.data.length === 0 && <p>You have not placed any orders yet.</p>}
+      {orders.data && orders.data.data.length === 0 && orders.data.meta.total === 0 && <p>You have not placed any orders yet.</p>}
+      {orders.data && orders.data.data.length === 0 && orders.data.meta.total > 0 && (
+        <div className="flex flex-col items-start gap-3">
+          <p>This page is past the end of your orders.</p>
+          <Button variant="outline" onClick={() => setParams({ page: '1' })}>
+            Go to the first page
+          </Button>
+        </div>
+      )}
       {orders.data && orders.data.data.length > 0 && (
         <>
           <ul className="divide-y rounded-lg border">

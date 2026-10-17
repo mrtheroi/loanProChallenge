@@ -20,9 +20,12 @@ export function OrderDetailContainer() {
     return (
       <section className="flex flex-col items-start gap-4">
         <h1 className="font-heading text-2xl font-semibold">{notFound ? 'Order not found' : 'We could not load this order.'}</h1>
-        <Button asChild variant="outline">
-          <Link to="/orders">My orders</Link>
-        </Button>
+        <div className="flex gap-2">
+          {!notFound && <Button onClick={() => void order.refetch()}>Try again</Button>}
+          <Button asChild variant="outline">
+            <Link to="/orders">My orders</Link>
+          </Button>
+        </div>
       </section>
     )
   }

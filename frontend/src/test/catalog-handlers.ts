@@ -1,14 +1,7 @@
+import type { Product } from '@/features/catalog/api/catalogApi'
 import { http, HttpResponse } from 'msw'
 
-export type TestProduct = {
-  sku: string
-  name: string
-  description: string | null
-  category: string
-  price: string
-  stock: number
-  weight_kg: string | null
-}
+export type TestProduct = Product
 
 export function product(overrides: Partial<TestProduct> = {}): TestProduct {
   return { sku: 'MUG-1', name: 'Mug', description: 'Ceramic mug', category: 'Kitchen', price: '16.99', stock: 5, weight_kg: '0.300', ...overrides }

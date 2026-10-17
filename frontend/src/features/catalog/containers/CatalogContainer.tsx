@@ -1,11 +1,17 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
+import { ApiError } from '@/shared/api/http'
+import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { fetchCategories, searchProducts } from '../api/catalogApi'
 import { CatalogFiltersForm } from '../components/CatalogFiltersForm'
-import { Pagination } from '../components/Pagination'
+import { Pagination } from '@/shared/ui/Pagination'
 import { ProductCard } from '../components/ProductCard'
 import { filtersFrom, paramsFrom } from '../filters'
+
+function isValidationError(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 422
+}
 
 export function CatalogContainer() {
   const [params, setParams] = useSearchParams()
@@ -23,7 +29,13 @@ export function CatalogContainer() {
       <h1 className="font-heading text-2xl font-semibold">Products</h1>
       <CatalogFiltersForm key={params.toString()} initial={filtersFrom(params)} categories={categories.data ?? []} onSubmit={(filters) => setParams(paramsFrom(filters))} />
 
-      {products.isError && (
+      {products.isError && isValidationError(products.error) && (
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>Check your filters: {products.error.message}</AlertDescription>
+        </Alert>
+      )}
+
+      {products.isError && !isValidationError(products.error) && (
         <div className="flex flex-col items-start gap-3">
           <p>We could not load the products.</p>
           <Button onClick={() => void products.refetch()}>Try again</Button>

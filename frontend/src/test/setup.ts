@@ -9,6 +9,7 @@ afterEach(() => {
   server.resetHandlers()
   useCartStore.getState().clear()
   localStorage.clear()
+  sessionStorage.clear()
   cleanup()
   document.cookie.split(';').forEach((cookie) => {
     const name = cookie.split('=')[0]?.trim()

@@ -10,7 +10,13 @@ const schema = z.object({
   exp_month: z.coerce.number<string>().int('Enter a month from 1 to 12.').min(1, 'Enter a month from 1 to 12.').max(12, 'Enter a month from 1 to 12.'),
   exp_year: z.coerce.number<string>().int('Enter a 4-digit year.').min(2000, 'Enter a 4-digit year.').max(2100, 'Enter a 4-digit year.'),
   cvc: z.string().regex(/^\d{3,4}$/, 'Enter 3 or 4 digits.'),
-})
+}).refine(
+  (card) => {
+    const today = new Date()
+    return card.exp_year * 12 + card.exp_month >= today.getFullYear() * 12 + today.getMonth() + 1
+  },
+  { path: ['exp_year'], message: 'This card has expired.' },
+)
 
 type CardValues = z.input<typeof schema>
 export type Card = CheckoutPayload['card']

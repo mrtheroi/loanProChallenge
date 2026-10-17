@@ -1,5 +1,9 @@
 const PRICE = /^(\d+)(?:\.(\d{1,2}))?$/
 
+export function isPrice(value: string): boolean {
+  return PRICE.test(value)
+}
+
 export function toCents(price: string): bigint {
   const match = PRICE.exec(price)
   if (match === null) throw new Error(`Invalid price: ${price}`)
