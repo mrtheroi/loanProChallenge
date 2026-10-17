@@ -176,7 +176,11 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
     - The affected-row check relies on PostgreSQL counting matched rows; MySQL counts only changed rows, which is noted but out of scope (the stack is Postgres).
     - Behavior change: `PUT` to an unknown SKU with a mismatched body SKU returns 422 on `sku` (body validation runs first).
     - A real two-connection race for `add` is deferred to T11.
-- [ ] T08 Search API: free text, filters, sorting, pagination. Route: D. Check: feature tests.
+- [x] T08 Search API: free text, filters, sorting, pagination. Route: inline (no writer trigger). Check: feature tests. Commit 240c486.
+  - 2026-10-16 user decision: search is public ("Pública (Recomendado)"): guests browse and search, buying requires a buyer session; admin uses the same endpoint.
+  - Contract (assumptions, not user strings): `GET /api/products` with `q` (≤100 chars, no control characters; `%`, `_` and `\` are literal), `category` (normalized match), `min_price`/`max_price` (price format; min ≤ max), `in_stock` (`1|0|true|false`), `sort` (`name|-name|price|-price`, default `name`, tie-break by sku), `page` (≥1), `per_page` (1–50, default 12). Response: `data` (product resource) and `meta` (`current_page`, `per_page`, `total`, `last_page`). Soft-deleted products are excluded.
+  - Evidence: `SearchProductsApiTest` (59 cases), RED observed per behavior (NUL and invalid UTF-8 in `q` were 500 before the rules); wildcard escaping mutation-checked (removing it fails 3 cases); suite 383 passed, Larastan clean, Pint clean. The row→domain mapping moved to `ProductModel::toProduct()`, shared by the repository and the search. Native assess: medium, `under_budget`, no review due.
+  - Page is capped at 1,000,000 so the offset can never overflow.
 - [ ] T09 Import: CSV reader, row validation, in-file duplicate detection, name-guarded upsert, per-row report endpoint. Route: D. Check: unit + feature tests, including the sample CSV traps.
 - [ ] T10 Ordering: orders/order_items with snapshots, atomic Checkout use case, PaymentGateway port + fake adapter, idempotency, My orders. Route: D. Check: unit + feature tests.
 - [ ] T11 Concurrency integration test (two processes, last unit) or a declared gap. Route: D. Check: the test is stable, or the gap is documented.
@@ -202,4 +206,4 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
 - 2026-10-16: Slice 1 complete (T01, T02, T03, hardening, T03b). Pushed, and PR #1 opened: https://github.com/mrtheroi/loanProChallenge/pull/1 (`size:exception` recommended: about 12,300 generated or data lines; about 430 authored).
 
 ## Next step
-Slice 2 (`feat/02-catalog-domain`, branched from `feat/01-bootstrap`): T04, the Catalog domain.
+T08 on `feat/08-product-search` (PR #5 merged 2026-10-16).
