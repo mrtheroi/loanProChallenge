@@ -29,10 +29,6 @@ final readonly class PlaceOrderCommand
         }
     }
 
-    /**
-     * Identifies the request without any card secret: only brand, last four
-     * and expiry are compared, so nothing derived from the number or CVC is stored.
-     */
     public function requestHash(): string
     {
         $lines = [];

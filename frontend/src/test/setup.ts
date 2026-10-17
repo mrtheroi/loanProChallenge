@@ -6,7 +6,6 @@ import { server } from './server'
 
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 beforeEach(() => {
-  // jsdom has no Web Locks; a single page can stand in for every tab by queueing per lock name.
   const queues = new Map<string, Promise<unknown>>()
   const request = (name: string, callback: () => Promise<unknown>) => {
     const run = (queues.get(name) ?? Promise.resolve()).then(callback, callback)

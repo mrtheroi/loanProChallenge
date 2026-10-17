@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Ecommerce\Identity\Role;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -24,11 +23,7 @@ class User extends Authenticatable
         'role' => Role::Buyer->value,
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
+    /** @return array<string, string> */
     protected function casts(): array
     {
         return [

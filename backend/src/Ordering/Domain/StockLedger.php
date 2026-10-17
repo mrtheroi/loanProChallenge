@@ -7,8 +7,6 @@ namespace Ecommerce\Ordering\Domain;
 interface StockLedger
 {
     /**
-     * Locks the rows of the given SKUs until the surrounding transaction ends.
-     *
      * @param  list<string>  $skus
      * @return array<string, StockItem>
      */

@@ -13,7 +13,6 @@ export function ImportContainer() {
   const queryClient = useQueryClient()
   const upload = useMutation({
     mutationFn: importProducts,
-    // Rows are written one by one, so even a failed import may have changed the catalog.
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: ['products'] })
       await queryClient.invalidateQueries({ queryKey: ['product'] })

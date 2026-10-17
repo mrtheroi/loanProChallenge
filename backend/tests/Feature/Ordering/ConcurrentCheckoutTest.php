@@ -17,8 +17,6 @@ afterEach(function (): void {
 });
 
 /**
- * Reads the given pipes until each one closes, or until the deadline passes.
- *
  * @param  array<int, resource>  $streams
  * @return array<int, string>|null null when the deadline passed
  */

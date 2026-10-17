@@ -3,7 +3,6 @@ import type { TestProduct } from './catalog-handlers'
 
 type ProductBody = Omit<TestProduct, 'stock'> & { stock: number | string }
 
-/** Admin catalog writes against the same array the catalog handlers read, so the store reflects every change. */
 export function adminHandlers(products: TestProduct[]) {
   const writes: { method: string; sku: string; body: ProductBody | null }[] = []
   const find = (sku: string) => products.findIndex((p) => p.sku === sku.toUpperCase())
