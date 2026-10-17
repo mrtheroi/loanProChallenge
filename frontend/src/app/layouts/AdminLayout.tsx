@@ -12,6 +12,9 @@ export function AdminLayout() {
               <Link to="/admin" className="font-heading text-lg font-semibold">
                 LoanPro Admin
               </Link>
+              <Link to="/admin/import" className="text-sm text-muted-foreground">
+                Import CSV
+              </Link>
               <Link to="/" className="text-sm text-muted-foreground">
                 View store
               </Link>

@@ -1,6 +1,7 @@
 import type { RouteObject } from 'react-router'
 import { AdminProductsContainer } from '@/features/admin-catalog/containers/AdminProductsContainer'
 import { ProductFormContainer } from '@/features/admin-catalog/containers/ProductFormContainer'
+import { ImportContainer } from '@/features/import/containers/ImportContainer'
 import { LoginContainer } from '@/features/auth/containers/LoginContainer'
 import { CartContainer } from '@/features/cart/containers/CartContainer'
 import { CatalogContainer } from '@/features/catalog/containers/CatalogContainer'
@@ -22,6 +23,7 @@ export const routes: RouteObject[] = [
       { index: true, element: <AdminProductsContainer /> },
       { path: 'products/new', element: <ProductFormContainer key="new" /> },
       { path: 'products/:sku/edit', element: <ProductFormContainer key="edit" /> },
+      { path: 'import', element: <ImportContainer /> },
     ],
   },
   {
