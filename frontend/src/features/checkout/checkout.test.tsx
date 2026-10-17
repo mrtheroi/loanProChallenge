@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { useCartStore } from '@/features/cart/cartStore'
 import { authHandlers, buyer } from '@/test/auth-handlers'
-import { orderHandlers } from '@/test/order-handlers'
+import { order, orderHandlers } from '@/test/order-handlers'
 import { renderRoute } from '@/test/render'
 import { server } from '@/test/server'
 
@@ -56,7 +56,7 @@ describe('checkout', () => {
     expect(orders.placed).toHaveLength(1)
     expect(orders.placed[0]?.key).toMatch(UUID)
     expect(orders.placed[0]?.body).toEqual({
-      items: [{ sku: 'MUG-1', quantity: 2 }, { sku: 'CUP-1', quantity: 1 }],
+      items: [{ sku: 'MUG-1', quantity: 2, unit_price: '16.99' }, { sku: 'CUP-1', quantity: 1, unit_price: '5.50' }],
       card: { number: '4242 4242 4242 4242', exp_month: 12, exp_year: 2030, cvc: '123' },
     })
     expect(useCartStore.getState().items).toEqual({})
@@ -263,5 +263,35 @@ describe('checkout', () => {
     await waitFor(() => expect(keys).toHaveLength(3))
 
     expect(new Set(keys).size).toBe(1)
+  })
+
+  it('updates the cart to the new prices and asks the buyer to review them before paying', async () => {
+    fillCart()
+    const orders = orderHandlers()
+    const attempts: Array<{ key: string | null; mugPrice: string | undefined }> = []
+    server.use(
+      http.post('/api/orders', async ({ request }) => {
+        const body = (await request.json()) as { items: Array<{ sku: string; unit_price: string }> }
+        attempts.push({ key: request.headers.get('Idempotency-Key'), mugPrice: body.items.find((item) => item.sku === 'MUG-1')?.unit_price })
+        return attempts.length === 1
+          ? HttpResponse.json({ message: 'Some prices changed. Review your cart before paying.', price_changes: [{ sku: 'MUG-1', expected: '16.99', current: '18.00' }] }, { status: 409 })
+          : HttpResponse.json({ data: order({ id: 77 }) }, { status: 201 })
+      }),
+      ...authHandlers(buyer).handlers,
+      ...orders.handlers,
+    )
+    const { user } = renderRoute('/checkout')
+
+    await payWith(user)
+
+    const alert = await screen.findByRole('alert')
+    expect(within(alert).getByText('Mug: $16.99 → $18.00')).toBeInTheDocument()
+    expect(useCartStore.getState().items['MUG-1']?.price).toBe('18.00')
+    expect(screen.getByText('Total: $41.50')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Pay $41.50' }))
+
+    expect(await screen.findByText('Thank you! Your order is confirmed.')).toBeInTheDocument()
+    expect(attempts.map((attempt) => attempt.mugPrice)).toEqual(['16.99', '18.00'])
+    expect(attempts[1]?.key).not.toBe(attempts[0]?.key)
   })
 })

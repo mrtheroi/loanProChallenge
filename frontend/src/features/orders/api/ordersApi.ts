@@ -15,11 +15,17 @@ export type Order = {
 export type OrderPage = { data: Order[]; meta: PageMeta }
 
 export type CheckoutPayload = {
-  items: Array<{ sku: string; quantity: number }>
+  items: Array<{ sku: string; quantity: number; unit_price: string }>
   card: { number: string; exp_month: number; exp_year: number; cvc: string }
 }
 
 export type Unavailable = { sku: string; requested: number; available: number }
+
+export type PriceChange = { sku: string; expected: string; current: string }
+
+export function orderQueryKey(id: string | number) {
+  return ['order', String(id)] as const
+}
 
 export async function placeOrder(idempotencyKey: string, payload: CheckoutPayload): Promise<Order> {
   return (await apiFetch<{ data: Order }>('/api/orders', { method: 'POST', body: payload, headers: { 'Idempotency-Key': idempotencyKey } })).data

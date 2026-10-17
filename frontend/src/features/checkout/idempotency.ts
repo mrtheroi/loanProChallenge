@@ -1,10 +1,9 @@
 import type { CheckoutPayload } from '@/features/orders/api/ordersApi'
 
-const STORAGE_KEY = 'loanpro-checkout-attempt'
+const ATTEMPT_PREFIX = 'loanpro-checkout-attempt:'
+const LEGACY_KEYS = ['loanpro-checkout-attempt', 'loanpro-checkout-attempts']
 
-type Attempt = { fingerprint: string; key: string }
-
-let memoryAttempt: Attempt | null = null
+const memoryAttempts = new Map<string, string>()
 
 /** Mirrors the backend's PaymentCard::brand() so both sides agree on request identity. */
 function cardBrand(digits: string): string {
@@ -15,56 +14,75 @@ function cardBrand(digits: string): string {
 }
 
 /**
- * Identifies a payment the way the backend's request hash does: the items plus
- * the card's brand, last four digits and expiry. Formatting and the CVC do not
- * change it, and no secret is kept.
+ * Identifies a payment the way the backend's request hash does: the items with
+ * their expected prices plus the card's brand, last four digits and expiry.
+ * Formatting and the CVC do not change it.
  */
 export function paymentFingerprint(payload: CheckoutPayload): string {
-  const items = [...payload.items].sort((a, b) => (a.sku < b.sku ? -1 : a.sku > b.sku ? 1 : 0)).map((item) => [item.sku, item.quantity])
+  const items = [...payload.items]
+    .sort((a, b) => (a.sku < b.sku ? -1 : a.sku > b.sku ? 1 : 0))
+    .map((item) => [item.sku, item.quantity, item.unit_price])
   const digits = payload.card.number.replace(/\D/g, '')
 
   return JSON.stringify({ items, card: [cardBrand(digits), digits.slice(-4), payload.card.exp_month, payload.card.exp_year] })
 }
 
-function readAttempt(): Attempt | null {
+async function hash(fingerprint: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(fingerprint))
+
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function readAttempt(id: string): string | undefined {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    const attempt = raw === null ? null : (JSON.parse(raw) as Partial<Attempt>)
-
-    if (typeof attempt?.fingerprint === 'string' && typeof attempt.key === 'string') return { fingerprint: attempt.fingerprint, key: attempt.key }
+    return localStorage.getItem(ATTEMPT_PREFIX + id) ?? memoryAttempts.get(id)
   } catch {
-    // Fall back to the in-memory attempt below.
+    return memoryAttempts.get(id)
   }
-
-  return memoryAttempt
 }
 
 /**
- * Returns the Idempotency-Key for a payment. While the outcome is unknown the
- * key is shared by every tab (localStorage, like the cart) and kept in memory
- * when storage fails, so a retry of the same payment is replayed instead of
- * charged again.
+ * Returns the Idempotency-Key for a payment. Each unresolved payment keeps its
+ * own key under its own storage entry (named by a hash, never the card
+ * details), so tabs never overwrite each other's attempts, and the key is kept
+ * in memory when storage fails. A retry of the same payment is therefore
+ * replayed by the backend instead of charged again.
  */
-export function idempotencyKeyFor(fingerprint: string): string {
-  const pending = readAttempt()
-  if (pending?.fingerprint === fingerprint) return pending.key
+export async function idempotencyKeyFor(fingerprint: string): Promise<string> {
+  const id = await hash(fingerprint)
+  const existing = readAttempt(id)
+  if (existing !== undefined) return existing
 
-  const attempt = { fingerprint, key: crypto.randomUUID() }
-  memoryAttempt = attempt
+  const key = crypto.randomUUID()
+  memoryAttempts.set(id, key)
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(attempt))
+    localStorage.setItem(ATTEMPT_PREFIX + id, key)
   } catch {
     // The in-memory attempt still covers retries in this page.
   }
 
-  return attempt.key
+  return key
 }
 
-/** Forgets the pending attempt once its outcome is known. */
-export function settlePayment(): void {
-  memoryAttempt = null
+/** Forgets one payment's attempt once its outcome is known. */
+export async function settlePayment(fingerprint: string): Promise<void> {
+  const id = await hash(fingerprint)
+  memoryAttempts.delete(id)
   try {
-    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(ATTEMPT_PREFIX + id)
+  } catch {
+    // Nothing else to forget.
+  }
+}
+
+/** Forgets every pending attempt, for example on logout. */
+export function forgetAllPayments(): void {
+  memoryAttempts.clear()
+  try {
+    const keys = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
+    for (const key of keys) {
+      if (key !== null && (key.startsWith(ATTEMPT_PREFIX) || LEGACY_KEYS.includes(key))) localStorage.removeItem(key)
+    }
   } catch {
     // Nothing else to forget.
   }

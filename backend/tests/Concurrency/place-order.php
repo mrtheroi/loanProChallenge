@@ -42,6 +42,7 @@ try {
         (int) $userId,
         $key,
         [$sku => (int) $quantity],
+        [$sku => 1000],
         PaymentCard::fromInput('4242424242424242', 12, 2030, '123'),
         new DateTimeImmutable('2026-10-16'),
     ));

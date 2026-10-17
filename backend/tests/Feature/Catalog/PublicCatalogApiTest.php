@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Ecommerce\Catalog\Domain\ProductRepository;
 use Ecommerce\Catalog\Domain\Sku;
+use Ecommerce\Catalog\Infrastructure\CategoryModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Catalog\AdminCatalog;
 
@@ -43,6 +44,7 @@ it('returns 404 for an unknown, deleted or malformed sku', function (string $sku
 
 it('lists the categories that have visible products, sorted by name', function (): void {
     seedCatalog();
+    CategoryModel::query()->create(['name' => 'Empty', 'normalized_name' => 'empty']);
 
     $this->getJson('/api/categories')
         ->assertOk()

@@ -15,7 +15,7 @@ export function order(overrides: Partial<TestOrder> = {}): TestOrder {
   }
 }
 
-type PlaceRequest = { key: string | null; body: { items: Array<{ sku: string; quantity: number }>; card: Record<string, unknown> } }
+type PlaceRequest = { key: string | null; body: { items: Array<{ sku: string; quantity: number; unit_price: string }>; card: Record<string, unknown> } }
 
 export function orderHandlers(orders: TestOrder[] = []) {
   const placed: PlaceRequest[] = []

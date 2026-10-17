@@ -14,6 +14,10 @@ export const SORT_OPTIONS = [
   { value: '-price', label: 'Price (high to low)' },
 ] as const
 
+function sortFrom(value: string | null): string {
+  return SORT_OPTIONS.find((option) => option.value === value)?.value ?? 'name'
+}
+
 export function filtersFrom(params: URLSearchParams): CatalogFilters {
   return {
     q: params.get('q') ?? '',
@@ -21,7 +25,7 @@ export function filtersFrom(params: URLSearchParams): CatalogFilters {
     min_price: params.get('min_price') ?? '',
     max_price: params.get('max_price') ?? '',
     in_stock: params.get('in_stock') === '1',
-    sort: SORT_OPTIONS.some((option) => option.value === params.get('sort')) ? (params.get('sort') ?? 'name') : 'name',
+    sort: sortFrom(params.get('sort')),
   }
 }
 

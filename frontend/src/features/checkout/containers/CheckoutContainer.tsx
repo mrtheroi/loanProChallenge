@@ -3,44 +3,53 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useCartStore } from '@/features/cart/cartStore'
 import { cartSubtotalCents, lineTotalCents } from '@/features/cart/totals'
-import { placeOrder, type CheckoutPayload, type Unavailable } from '@/features/orders/api/ordersApi'
+import { orderQueryKey, placeOrder, type CheckoutPayload, type PriceChange, type Unavailable } from '@/features/orders/api/ordersApi'
 import { ApiError } from '@/shared/api/http'
-import { formatCents } from '@/shared/lib/money'
+import { formatCents, toCents } from '@/shared/lib/money'
 import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { CardForm, type Card } from '../components/CardForm'
 import { idempotencyKeyFor, paymentFingerprint, settlePayment, settlesPayment } from '../idempotency'
 
-type Problem = { message: string; unavailable: Unavailable[] }
+type Problem = { message: string; unavailable: Unavailable[]; priceChanges: PriceChange[] }
 
 function problemFrom(error: unknown): Problem {
-  if (!(error instanceof ApiError)) return { message: 'We could not reach the server. Check your connection and try again.', unavailable: [] }
+  if (!(error instanceof ApiError)) return { message: 'We could not reach the server. Check your connection and try again.', unavailable: [], priceChanges: [] }
 
-  const body = error.body as { unavailable?: Unavailable[] } | null
+  const body = error.body as { unavailable?: Unavailable[]; price_changes?: PriceChange[] } | null
   const fieldMessage = Object.values(error.errors)[0]?.[0]
+  const conflict = error.status === 409
 
-  return { message: fieldMessage ?? error.message, unavailable: error.status === 409 ? (body?.unavailable ?? []) : [] }
+  return {
+    message: fieldMessage ?? error.message,
+    unavailable: conflict ? (body?.unavailable ?? []) : [],
+    priceChanges: conflict ? (body?.price_changes ?? []) : [],
+  }
 }
 
 export function CheckoutContainer() {
   const items = useCartStore((state) => state.items)
   const clear = useCartStore((state) => state.clear)
   const limit = useCartStore((state) => state.limit)
+  const reprice = useCartStore((state) => state.reprice)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [problem, setProblem] = useState<Problem | null>(null)
 
   const checkout = useMutation({
-    mutationFn: ({ key, payload }: { key: string; payload: CheckoutPayload }) => placeOrder(key, payload),
-    onSuccess: async (order) => {
-      settlePayment()
-      queryClient.setQueryData(['order', String(order.id)], order)
-      clear()
+    mutationFn: async ({ fingerprint, payload }: { fingerprint: string; payload: CheckoutPayload }) =>
+      placeOrder(await idempotencyKeyFor(fingerprint), payload),
+    onSuccess: async (order, { fingerprint }) => {
+      queryClient.setQueryData(orderQueryKey(order.id), order)
       await navigate(`/orders/${order.id}`, { state: { placed: true } })
+      clear()
+      await settlePayment(fingerprint)
     },
-    onError: (error) => {
-      if (error instanceof ApiError && settlesPayment(error.status)) settlePayment()
-      setProblem(problemFrom(error))
+    onError: async (error, { fingerprint }) => {
+      const found = problemFrom(error)
+      found.priceChanges.forEach((change) => reprice(change.sku, change.current))
+      setProblem(found)
+      if (error instanceof ApiError && settlesPayment(error.status)) await settlePayment(fingerprint)
     },
   })
 
@@ -61,9 +70,9 @@ export function CheckoutContainer() {
   const total = formatCents(cartSubtotalCents(lines))
 
   const pay = (card: Card) => {
-    const payload: CheckoutPayload = { items: lines.map((line) => ({ sku: line.sku, quantity: line.quantity })), card }
+    const payload: CheckoutPayload = { items: lines.map((line) => ({ sku: line.sku, quantity: line.quantity, unit_price: line.price })), card }
     setProblem(null)
-    checkout.mutate({ key: idempotencyKeyFor(paymentFingerprint(payload)), payload })
+    checkout.mutate({ fingerprint: paymentFingerprint(payload), payload })
   }
 
   return (
@@ -88,6 +97,13 @@ export function CheckoutContainer() {
           <Alert variant="destructive" role="alert">
             <AlertDescription>
               <p>{problem.message}</p>
+              {problem.priceChanges.length > 0 && (
+                <ul className="mt-2 list-disc pl-4">
+                  {problem.priceChanges.map((change) => (
+                    <li key={change.sku}>{`${items[change.sku]?.name ?? change.sku}: ${formatCents(toCents(change.expected))} → ${formatCents(toCents(change.current))}`}</li>
+                  ))}
+                </ul>
+              )}
               {problem.unavailable.length > 0 && (
                 <>
                   <ul className="mt-2 list-disc pl-4">

@@ -294,7 +294,7 @@ describe('session state', () => {
 
   it('clears the cart and any pending payment when the user logs out', async () => {
     useCartStore.getState().add({ sku: 'MUG-1', name: 'Mug', price: '16.99', stock: 5 })
-    localStorage.setItem('loanpro-checkout-attempt', JSON.stringify({ fingerprint: 'fp', key: 'k' }))
+    localStorage.setItem('loanpro-checkout-attempt:abc', 'k')
     server.use(...authHandlers(buyer).handlers)
     const { user } = renderRoute('/')
 
@@ -302,6 +302,6 @@ describe('session state', () => {
     await screen.findByRole('link', { name: 'Log in' })
 
     expect(useCartStore.getState().items).toEqual({})
-    expect(localStorage.getItem('loanpro-checkout-attempt')).toBeNull()
+    expect(localStorage.getItem('loanpro-checkout-attempt:abc')).toBeNull()
   })
 })

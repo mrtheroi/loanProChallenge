@@ -4,13 +4,13 @@ import { ApiError } from '@/shared/api/http'
 import { formatCents, toCents } from '@/shared/lib/money'
 import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
-import { fetchOrder } from '../api/ordersApi'
+import { fetchOrder, orderQueryKey } from '../api/ordersApi'
 
 export function OrderDetailContainer() {
   const { id = '' } = useParams()
   const location = useLocation()
   const placed = (location.state as { placed?: boolean } | null)?.placed === true
-  const order = useQuery({ queryKey: ['order', id], queryFn: () => fetchOrder(id), staleTime: Infinity })
+  const order = useQuery({ queryKey: orderQueryKey(id), queryFn: () => fetchOrder(id), staleTime: Infinity })
 
   if (order.isPending) return <p className="text-muted-foreground">Loading…</p>
 

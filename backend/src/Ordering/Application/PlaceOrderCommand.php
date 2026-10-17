@@ -9,11 +9,15 @@ use Ecommerce\Ordering\Domain\PaymentCard;
 
 final readonly class PlaceOrderCommand
 {
-    /** @param  array<string, int>  $quantitiesBySku  canonical SKU => quantity */
+    /**
+     * @param  array<string, int>  $quantitiesBySku  canonical SKU => quantity
+     * @param  array<string, int>  $expectedPriceCentsBySku  canonical SKU => unit price the buyer saw
+     */
     public function __construct(
         public int $userId,
         public string $idempotencyKey,
         public array $quantitiesBySku,
+        public array $expectedPriceCentsBySku,
         public PaymentCard $card,
         public DateTimeImmutable $today,
     ) {}
@@ -26,7 +30,7 @@ final readonly class PlaceOrderCommand
     {
         $lines = [];
         foreach ($this->quantitiesBySku as $sku => $quantity) {
-            $lines[] = [(string) $sku, $quantity];
+            $lines[] = [(string) $sku, $quantity, $this->expectedPriceCentsBySku[$sku] ?? null];
         }
         usort($lines, fn (array $a, array $b): int => strcmp($a[0], $b[0]));
 
