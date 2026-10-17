@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { adminHandlers } from '@/test/admin-handlers'
@@ -173,5 +173,83 @@ describe('admin catalog', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Check your search: The q field must not be greater than 100 characters.')
     expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Search products')).toHaveAttribute('maxlength', '100')
+  })
+  it('offers a way back from a page past the end of the results', async () => {
+    server.use(...authHandlers(admin).handlers, ...catalogHandlers([product()]).handlers)
+    const { user, router } = renderRoute('/admin?page=40')
+
+    expect(await screen.findByText('This page is past the end of the results.')).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Go to the first page' }))
+
+    expect(await screen.findByRole('row', { name: /MUG-1/ })).toBeInTheDocument()
+    expect(router.state.location.search).toBe('?page=1')
+  })
+  it('stops suggesting a category once its last product is deleted', async () => {
+    const products = [product(), product({ sku: 'TENT-1', name: 'Tent', category: 'Outdoors' })]
+    server.use(
+      http.get('/api/categories', () => HttpResponse.json({ data: [...new Set(products.map((p) => p.category))].sort() })),
+      ...authHandlers(admin).handlers,
+      ...catalogHandlers(products).handlers,
+      ...adminHandlers(products).handlers,
+    )
+    const { user, router } = renderRoute('/admin/products/new')
+    const suggestions = () => Array.from(document.querySelectorAll('#category-options option'), (option) => (option as HTMLOptionElement).value)
+    await waitFor(() => expect(suggestions()).toEqual(['Kitchen', 'Outdoors']))
+
+    await act(() => router.navigate('/admin'))
+    await user.click(await screen.findByRole('button', { name: 'Delete Tent' }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.queryByRole('row', { name: /TENT-1/ })).not.toBeInTheDocument())
+    await act(() => router.navigate('/admin/products/new'))
+
+    await waitFor(() => expect(suggestions()).toEqual(['Kitchen']))
+  })
+  it('starts a blank form when going from editing a product to creating one', async () => {
+    const products = [product()]
+    server.use(...authHandlers(admin).handlers, ...catalogHandlers(products).handlers, ...adminHandlers(products).handlers)
+    const { router } = renderRoute('/admin/products/MUG-1/edit')
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Mug'))
+
+    await act(() => router.navigate('/admin/products/new'))
+
+    expect(await screen.findByRole('heading', { name: 'New product' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Name')).toHaveValue('')
+    expect(screen.getByLabelText('SKU')).toHaveValue('')
+    expect(screen.getByLabelText('SKU')).not.toHaveAttribute('readonly')
+  })
+  it('keeps the form and shows the problem when a save fails for a server reason', async () => {
+    server.use(
+      http.post('/api/admin/products', () => HttpResponse.json({ message: 'Server Error' }, { status: 500 })),
+      ...authHandlers(admin).handlers,
+      ...catalogHandlers([]).handlers,
+    )
+    const { user, router } = renderRoute('/admin/products/new')
+
+    await user.type(await screen.findByLabelText('SKU'), 'lamp-1')
+    await user.type(screen.getByLabelText('Name'), 'Desk lamp')
+    await user.click(screen.getByRole('button', { name: 'Create product' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Server Error')
+    expect(screen.getByLabelText('Name')).toHaveValue('Desk lamp')
+    expect(router.state.location.pathname).toBe('/admin/products/new')
+  })
+
+  it('offers a retry when the product to edit cannot be loaded for a temporary reason', async () => {
+    let fail = true
+    const products = [product()]
+    server.use(
+      http.get('/api/admin/products/:sku', () => (fail ? HttpResponse.json({ message: 'Server Error' }, { status: 503 }) : undefined)),
+      ...authHandlers(admin).handlers,
+      ...catalogHandlers(products).handlers,
+      ...adminHandlers(products).handlers,
+    )
+    const { user } = renderRoute('/admin/products/MUG-1/edit')
+
+    expect(await screen.findByRole('heading', { name: 'We could not load this product.' })).toBeInTheDocument()
+    fail = false
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Mug'))
   })
 })

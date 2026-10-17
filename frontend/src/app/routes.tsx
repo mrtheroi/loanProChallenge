@@ -20,8 +20,8 @@ export const routes: RouteObject[] = [
     element: <AdminLayout />,
     children: [
       { index: true, element: <AdminProductsContainer /> },
-      { path: 'products/new', element: <ProductFormContainer /> },
-      { path: 'products/:sku/edit', element: <ProductFormContainer /> },
+      { path: 'products/new', element: <ProductFormContainer key="new" /> },
+      { path: 'products/:sku/edit', element: <ProductFormContainer key="edit" /> },
     ],
   },
   {

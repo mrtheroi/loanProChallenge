@@ -22,6 +22,7 @@ export function AdminProductsContainer() {
       setPendingDelete(null)
       await queryClient.invalidateQueries({ queryKey: ['products'] })
       await queryClient.invalidateQueries({ queryKey: ['product'] })
+      await queryClient.invalidateQueries({ queryKey: ['categories'] })
     },
   })
   const invalidSearch = products.error instanceof ApiError && products.error.status === 422 ? products.error : null
@@ -70,7 +71,15 @@ export function AdminProductsContainer() {
           <Button onClick={() => void products.refetch()}>Try again</Button>
         </div>
       )}
-      {products.data && (
+      {products.data && products.data.data.length === 0 && products.data.meta.total > 0 && (
+        <div className="flex flex-col items-start gap-3">
+          <p>This page is past the end of the results.</p>
+          <Button variant="outline" onClick={() => goToPage(1)}>
+            Go to the first page
+          </Button>
+        </div>
+      )}
+      {products.data && (products.data.data.length > 0 || products.data.meta.total === 0) && (
         <>
           <ProductTable products={products.data.data} onDelete={setPendingDelete} />
           <Pagination page={products.data.meta.current_page} lastPage={products.data.meta.last_page} onChange={goToPage} />
