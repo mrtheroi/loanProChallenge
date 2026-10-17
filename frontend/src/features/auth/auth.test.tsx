@@ -260,4 +260,34 @@ describe('session state', () => {
 
     expect(await screen.findByRole('heading', { name: 'Admin' })).toBeInTheDocument()
   })
+
+  it('keeps the user signed in when logout keeps failing with a CSRF mismatch', async () => {
+    server.use(
+      http.post('/api/auth/logout', () => HttpResponse.json({ message: 'CSRF token mismatch.' }, { status: 419 })),
+      ...authHandlers(buyer).handlers,
+    )
+    const { user } = renderRoute('/')
+
+    await user.click(await screen.findByRole('button', { name: 'Log out' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('We could not log you out. Please try again.')
+    expect(screen.getByText('Demo Buyer')).toBeInTheDocument()
+  })
+
+  it('does not present a failed session check as a guest in the store header', async () => {
+    let failing = true
+    server.use(
+      http.get('/api/auth/me', () => (failing ? HttpResponse.json({ message: 'Server Error' }, { status: 500 }) : HttpResponse.json({ data: buyer }))),
+      ...authHandlers(buyer).handlers,
+    )
+    const { user } = renderRoute('/')
+
+    expect(await screen.findByRole('button', { name: 'Retry session check' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Log in' })).not.toBeInTheDocument()
+
+    failing = false
+    await user.click(screen.getByRole('button', { name: 'Retry session check' }))
+
+    expect(await screen.findByText('Demo Buyer')).toBeInTheDocument()
+  })
 })

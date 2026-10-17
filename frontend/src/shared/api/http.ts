@@ -1,5 +1,6 @@
 const GENERIC_ERROR = 'Something went wrong. Please try again.'
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+const CSRF_MISMATCH = 419
 
 export type FieldErrors = Record<string, string[]>
 
@@ -29,8 +30,8 @@ function readCookie(name: string): string | null {
   return match ? decodeURIComponent(match.slice(name.length + 1)) : null
 }
 
-async function ensureCsrfCookie(): Promise<string | null> {
-  if (readCookie('XSRF-TOKEN') === null) {
+async function ensureCsrfCookie(refresh = false): Promise<string | null> {
+  if (refresh || readCookie('XSRF-TOKEN') === null) {
     await fetch('/sanctum/csrf-cookie', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
   }
 
@@ -65,22 +66,32 @@ function toApiError(status: number, body: unknown): ApiError {
 
 export async function apiFetch<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = (options.method ?? 'GET').toUpperCase()
-  const headers: Record<string, string> = { Accept: 'application/json', ...options.headers }
-
-  if (!SAFE_METHODS.has(method)) {
-    const token = await ensureCsrfCookie()
-    if (token !== null) headers['X-XSRF-TOKEN'] = token
-  }
+  const mutation = !SAFE_METHODS.has(method)
 
   let body: BodyInit | undefined
+  const baseHeaders: Record<string, string> = { Accept: 'application/json', ...options.headers }
   if (options.body instanceof FormData) {
     body = options.body
   } else if (options.body !== undefined) {
-    headers['Content-Type'] = 'application/json'
+    baseHeaders['Content-Type'] = 'application/json'
     body = JSON.stringify(options.body)
   }
 
-  const response = await fetch(path, { method, headers, body, credentials: 'same-origin' })
+  const send = async (refreshCsrf: boolean): Promise<Response> => {
+    const headers = { ...baseHeaders }
+    if (mutation) {
+      const token = await ensureCsrfCookie(refreshCsrf)
+      if (token !== null) headers['X-XSRF-TOKEN'] = token
+    }
+
+    return fetch(path, { method, headers, body, credentials: 'same-origin' })
+  }
+
+  let response = await send(false)
+  if (mutation && response.status === CSRF_MISMATCH) {
+    response = await send(true)
+  }
+
   const parsed = await parseBody(response)
 
   if (!response.ok) throw toApiError(response.status, parsed)

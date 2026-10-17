@@ -73,3 +73,39 @@ describe('test server', () => {
     expect(logged.mock.calls.flat().join(' ')).toContain('without a matching request handler')
   })
 })
+
+describe('stale CSRF token', () => {
+  it('refreshes the CSRF cookie and retries once when a mutation gets 419', async () => {
+    document.cookie = 'XSRF-TOKEN=stale; path=/'
+    const tokens: Array<string | null> = []
+    server.use(
+      http.get('/sanctum/csrf-cookie', () => {
+        document.cookie = 'XSRF-TOKEN=fresh; path=/'
+        return new HttpResponse(null, { status: 204 })
+      }),
+      http.post('/api/auth/logout', ({ request }) => {
+        const token = request.headers.get('X-XSRF-TOKEN')
+        tokens.push(token)
+        return token === 'fresh' ? new HttpResponse(null, { status: 204 }) : HttpResponse.json({ message: 'CSRF token mismatch.' }, { status: 419 })
+      }),
+    )
+
+    await expect(apiFetch('/api/auth/logout', { method: 'POST' })).resolves.toBeUndefined()
+    expect(tokens).toEqual(['stale', 'fresh'])
+  })
+
+  it('gives up after one retry and reports the 419', async () => {
+    document.cookie = 'XSRF-TOKEN=stale; path=/'
+    let attempts = 0
+    server.use(
+      http.get('/sanctum/csrf-cookie', () => new HttpResponse(null, { status: 204 })),
+      http.post('/api/auth/logout', () => {
+        attempts++
+        return HttpResponse.json({ message: 'CSRF token mismatch.' }, { status: 419 })
+      }),
+    )
+
+    await expect(apiFetch('/api/auth/logout', { method: 'POST' })).rejects.toMatchObject({ status: 419 })
+    expect(attempts).toBe(2)
+  })
+})

@@ -4,10 +4,18 @@ import { Button } from '@/shared/ui/button'
 import { useCurrentUser, useLogout } from '../hooks/useAuth'
 
 export function AuthMenu() {
-  const { data: user, isPending } = useCurrentUser()
+  const { data: user, isPending, isError, refetch } = useCurrentUser()
   const logout = useLogout()
 
   if (isPending) return null
+
+  if (isError && user === undefined) {
+    return (
+      <Button variant="outline" onClick={() => void refetch()}>
+        Retry session check
+      </Button>
+    )
+  }
 
   if (!user) {
     return (

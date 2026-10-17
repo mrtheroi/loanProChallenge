@@ -2,11 +2,11 @@ import { MutationCache, QueryCache, QueryClient, type DefaultOptions } from '@ta
 import { currentUserKey } from '@/features/auth/hooks/useAuth'
 import { ApiError } from '@/shared/api/http'
 
-const SESSION_GONE = new Set([401, 419])
+const UNAUTHENTICATED = 401
 
 export function createQueryClient(defaultOptions: DefaultOptions = {}): QueryClient {
   const signOutOnExpiredSession = (error: unknown) => {
-    if (error instanceof ApiError && SESSION_GONE.has(error.status)) {
+    if (isExpiredSession(error)) {
       client.setQueryData(currentUserKey, null)
     }
   }
@@ -21,5 +21,5 @@ export function createQueryClient(defaultOptions: DefaultOptions = {}): QueryCli
 }
 
 export function isExpiredSession(error: unknown): boolean {
-  return error instanceof ApiError && SESSION_GONE.has(error.status)
+  return error instanceof ApiError && error.status === UNAUTHENTICATED
 }
