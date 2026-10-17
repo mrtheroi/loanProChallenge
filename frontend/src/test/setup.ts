@@ -1,11 +1,14 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll } from 'vitest'
+import { useCartStore } from '@/features/cart/cartStore'
 import { server } from './server'
 
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 afterEach(() => {
   server.resetHandlers()
+  useCartStore.getState().clear()
+  localStorage.clear()
   cleanup()
   document.cookie.split(';').forEach((cookie) => {
     const name = cookie.split('=')[0]?.trim()
