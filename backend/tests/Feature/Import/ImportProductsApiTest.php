@@ -392,3 +392,10 @@ it('accepts exactly 5000 data rows and does not count blank rows toward the cap'
         ->assertOk()
         ->assertJsonPath('summary', ['created' => 5000, 'updated' => 0, 'unchanged' => 0, 'failed' => 0, 'blank_rows' => 2]);
 });
+
+it('skips blank lines before the header', function (): void {
+    importCsv("\n,,\n".IMPORT_HEADER."Mug,TM-029,,Kitchen,1.00,1,\n")
+        ->assertOk()
+        ->assertJsonPath('summary', ['created' => 1, 'updated' => 0, 'unchanged' => 0, 'failed' => 0, 'blank_rows' => 0])
+        ->assertJsonPath('rows.0.row', 4);
+});
