@@ -183,6 +183,10 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
   - Page is capped at 1,000,000 so the offset can never overflow.
   - Native review (lineage review-791a63959800dd7d, 1 lens reliability): approved and acknowledged. Suggestion applied: a combined-filters test (mutation-checked by flattening the OR group). Suggestion not applied: duplicating the category length/control rules in the request, because `CategoryName` stays the single source of truth for those limits (parity, cause 3) and its 422 mapping is already tested.
 - [ ] T09 Import: CSV reader, row validation, in-file duplicate detection, name-guarded upsert, per-row report endpoint. Route: D. Check: unit + feature tests, including the sample CSV traps.
+  - 2026-10-16 user decision: "league/csv (Recomendado)" behind a `CsvRowReader` port (league/csv 9.28.0 requires PHP ^8.2, compatible with 8.4). PR #6 merged; Codex found no issues.
+  - Contract (assumptions, not user strings): `POST /api/admin/products/import` (admin only), multipart `file` (.csv/.txt, ≤10 MB, F10). The header must hold exactly the columns name, sku, description, category, price, stock, weight_kg in any order (trimmed, case-insensitive); a missing, duplicate or unknown column rejects the whole file with 422. Fully blank rows are skipped and counted. A row with the wrong number of fields fails. Every invalid field of a row is reported, not only the first. Rows are numbered by CSV record with the header as row 1 (equal to the file line unless a quoted field spans lines).
+  - In-file duplicates by canonical SKU: differing data rejects every row of that SKU; identical rows are applied once and the repeats are reported as `unchanged` ("identical to row N").
+  - Existing SKU: same normalized name and same data → `unchanged`; same normalized name, different data → `updated` (stock absolute); different name → `failed`; soft-deleted SKU → `failed` (reserved). Response: `summary` (created, updated, unchanged, failed, blank_rows), `new_categories`, `rows` (row, sku, status, errors).
 - [ ] T10 Ordering: orders/order_items with snapshots, atomic Checkout use case, PaymentGateway port + fake adapter, idempotency, My orders. Route: D. Check: unit + feature tests.
 - [ ] T11 Concurrency integration test (two processes, last unit) or a declared gap. Route: D. Check: the test is stable, or the gap is documented.
 - [ ] T12 Frontend scaffold: Vite + React + TypeScript strict, Tailwind 4, shadcn in shared/ui, Router, Query, Vitest + RTL + MSW, Vite proxy, web Docker build. Route: D. Check: Vitest green, ESLint/tsc clean.
@@ -207,4 +211,4 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
 - 2026-10-16: Slice 1 complete (T01, T02, T03, hardening, T03b). Pushed, and PR #1 opened: https://github.com/mrtheroi/loanProChallenge/pull/1 (`size:exception` recommended: about 12,300 generated or data lines; about 430 authored).
 
 ## Next step
-T08 on `feat/08-product-search` (PR #5 merged 2026-10-16).
+T09 on `feat/09-csv-import` (PR #6 merged 2026-10-16).
