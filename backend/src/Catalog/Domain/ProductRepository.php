@@ -10,7 +10,7 @@ interface ProductRepository
 
     public function save(Product $product): void;
 
-    public function update(Product $product): Product;
+    public function update(Product $product, ?ProductName $expectedName = null): Product;
 
     public function findBySku(Sku $sku): ?Product;
 

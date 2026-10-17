@@ -40,3 +40,7 @@ it('rejects text that is not valid UTF-8 or contains control characters', functi
 it('accepts ordinary text with accented letters', function (): void {
     expect(ProductName::fromString('Café crème àéîõü')->value())->toBe('Café crème àéîõü');
 });
+
+it('normalizes casing and inner whitespace for comparison', function (): void {
+    expect(ProductName::fromString('  Running    SHOES ')->normalized())->toBe('running shoes');
+});

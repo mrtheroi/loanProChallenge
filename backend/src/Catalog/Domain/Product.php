@@ -25,13 +25,7 @@ final readonly class Product
         Stock $stock,
         ?Weight $weight,
     ): self {
-        $description = trim($description ?? '');
-
-        if (! mb_check_encoding($description, 'UTF-8') || preg_match('/(?![\t\n\r])\p{Cc}/u', $description) === 1) {
-            throw InvalidProductAttribute::because('description', 'must be valid UTF-8 text without control characters');
-        }
-
-        return new self($sku, $name, $description === '' ? null : $description, $category, $price, $stock, $weight);
+        return new self($sku, $name, Description::from($description), $category, $price, $stock, $weight);
     }
 
     public function sku(): Sku
