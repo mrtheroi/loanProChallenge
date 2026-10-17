@@ -9,6 +9,7 @@ type CartState = {
   add: (product: CartProduct) => void
   setQuantity: (sku: string, quantity: number) => void
   remove: (sku: string) => void
+  limit: (sku: string, available: number) => void
   clear: () => void
 }
 
@@ -34,6 +35,16 @@ export const useCartStore = create<CartState>()(
         set((state) => {
           const items = { ...state.items }
           delete items[sku]
+
+          return { items }
+        }),
+      limit: (sku, available) =>
+        set((state) => {
+          const line = state.items[sku]
+          if (line === undefined) return state
+          const items = { ...state.items }
+          if (available < 1) delete items[sku]
+          else items[sku] = { ...line, stock: available, quantity: Math.min(line.quantity, available) }
 
           return { items }
         }),

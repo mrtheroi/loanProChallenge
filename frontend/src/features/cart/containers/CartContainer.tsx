@@ -50,6 +50,9 @@ export function CartContainer() {
       <div className="flex flex-col items-end gap-2">
         <p className="text-lg font-semibold">Subtotal: {formatCents(subtotal)}</p>
         <p className="text-sm text-muted-foreground">Prices and stock are confirmed when you check out.</p>
+        <Button asChild>
+          <Link to="/checkout">Checkout</Link>
+        </Button>
       </div>
     </section>
   )

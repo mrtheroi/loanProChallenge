@@ -32,6 +32,11 @@ export function AuthMenu() {
 
   return (
     <nav className="flex items-center gap-3">
+      {user.role === 'buyer' && (
+        <Button asChild variant="ghost">
+          <Link to="/orders">My orders</Link>
+        </Button>
+      )}
       {user.role === 'admin' && (
         <Button asChild variant="ghost">
           <Link to="/admin">Admin</Link>
