@@ -19,7 +19,7 @@ final class ProductRowParser
 {
     private const int MAX_REPORTED_SKU_LENGTH = 100;
 
-    /** @param  array<string, string>  $fields */
+    /** @param  array<array-key, string>  $fields */
     public static function isBlank(array $fields): bool
     {
         return array_filter($fields, fn (string $value): bool => trim($value) !== '') === [];
@@ -51,14 +51,12 @@ final class ProductRowParser
 
         if (! $sku instanceof Sku || ! $name instanceof ProductName || ! $category instanceof CategoryName
             || ! $price instanceof Money || ! $stock instanceof Stock || $errors !== []) {
-            return new ParsedRow($reportedSku, null, self::ordered($errors));
+            return new ParsedRow($reportedSku, null, self::ordered($errors), self::rawSignature($reportedSku, $fields));
         }
 
-        return new ParsedRow(
-            $reportedSku,
-            Product::create($sku, $name, is_string($description) ? $description : null, $category, $price, $stock, $weight instanceof Weight ? $weight : null),
-            [],
-        );
+        $product = Product::create($sku, $name, is_string($description) ? $description : null, $category, $price, $stock, $weight instanceof Weight ? $weight : null);
+
+        return new ParsedRow($reportedSku, $product, [], self::productSignature($product));
     }
 
     /**
@@ -68,5 +66,26 @@ final class ProductRowParser
     private static function ordered(array $errors): array
     {
         return array_intersect_key(array_merge(array_fill_keys(CsvHeader::COLUMNS, []), $errors), $errors);
+    }
+
+    private static function productSignature(Product $product): string
+    {
+        return serialize([
+            $product->name()->normalized(),
+            $product->description(),
+            $product->category()->normalized(),
+            $product->price()->cents(),
+            $product->stock()->quantity(),
+            $product->weight()?->grams(),
+        ]);
+    }
+
+    /** @param  array<string, string>  $fields */
+    private static function rawSignature(string $sku, array $fields): string
+    {
+        $fields['sku'] = $sku;
+        ksort($fields);
+
+        return 'invalid:'.serialize(array_map('trim', $fields));
     }
 }

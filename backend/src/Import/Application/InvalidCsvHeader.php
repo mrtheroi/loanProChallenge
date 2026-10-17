@@ -20,6 +20,12 @@ final class InvalidCsvHeader extends DomainException
         return new self(sprintf('The CSV header repeats the column(s): %s.', self::list($columns)));
     }
 
+    /** @param  list<int>  $positions */
+    public static function unnamed(array $positions): self
+    {
+        return new self(sprintf('The CSV header has unnamed column(s) at position(s): %s.', implode(', ', $positions)));
+    }
+
     /** @param  list<string>  $columns */
     public static function unknown(array $columns): self
     {

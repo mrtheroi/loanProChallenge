@@ -15,14 +15,17 @@ final readonly class CsvHeader
     public static function fromRecord(array $record): self
     {
         $columns = array_map(fn (string $column): string => strtolower(trim($column)), $record);
-        $named = array_values(array_filter($columns, fn (string $column): bool => $column !== ''));
+        $unnamed = array_keys(array_filter($columns, fn (string $column): bool => $column === ''));
+        if ($unnamed !== []) {
+            throw InvalidCsvHeader::unnamed(array_map(fn (int $index): int => $index + 1, $unnamed));
+        }
 
-        $repeated = array_keys(array_filter(array_count_values($named), fn (int $count): bool => $count > 1));
+        $repeated = array_keys(array_filter(array_count_values($columns), fn (int $count): bool => $count > 1));
         if ($repeated !== []) {
             throw InvalidCsvHeader::repeated(array_map('strval', $repeated));
         }
 
-        $unknown = array_values(array_diff($named, self::COLUMNS));
+        $unknown = array_values(array_diff($columns, self::COLUMNS));
         if ($unknown !== []) {
             throw InvalidCsvHeader::unknown($unknown);
         }

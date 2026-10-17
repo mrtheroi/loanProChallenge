@@ -13,5 +13,6 @@ final readonly class ParsedRow
         public string $sku,
         public ?Product $product,
         public array $errors,
+        public string $signature,
     ) {}
 }

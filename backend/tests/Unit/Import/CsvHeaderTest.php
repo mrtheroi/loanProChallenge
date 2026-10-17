@@ -25,7 +25,9 @@ it('rejects a header with a missing, duplicate or unknown column', function (arr
     'missing' => [['name', 'sku', 'description', 'category', 'price', 'stock'], 'The CSV header is missing the column(s): weight_kg.'],
     'duplicate' => [['name', 'sku', 'description', 'category', 'price', 'stock', 'weight_kg', 'Name'], 'The CSV header repeats the column(s): name.'],
     'unknown' => [['name', 'sku', 'description', 'category', 'price', 'stock', 'weight_kg', 'color'], 'The CSV header has unknown column(s): color.'],
-    'empty' => [[''], 'The CSV header is missing the column(s): name, sku, description, category, price, stock, weight_kg.'],
+    'empty' => [[''], 'The CSV header has unnamed column(s) at position(s): 1.'],
+    'trailing comma' => [['name', 'sku', 'description', 'category', 'price', 'stock', 'weight_kg', ''], 'The CSV header has unnamed column(s) at position(s): 8.'],
+    'blank in the middle' => [['name', ' ', 'sku', 'description', 'category', 'price', 'stock', 'weight_kg'], 'The CSV header has unnamed column(s) at position(s): 2.'],
 ]);
 
 it('reports the field count of a record that does not match the header', function (): void {

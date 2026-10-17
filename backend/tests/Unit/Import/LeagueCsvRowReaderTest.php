@@ -56,3 +56,11 @@ it('keeps rows made only of separators so they can be reported', function (): vo
 it('accepts windows line endings', function (): void {
     expect(readCsv("name,sku\r\nShoes,RS-001\r\n"))->toBe([1 => ['name', 'sku'], 2 => ['Shoes', 'RS-001']]);
 });
+
+it('keeps physically empty lines so they can be counted as blank rows', function (): void {
+    expect(readCsv("name,sku\n\nShoes,RS-001\n"))->toBe([
+        1 => ['name', 'sku'],
+        2 => [],
+        3 => ['Shoes', 'RS-001'],
+    ]);
+});

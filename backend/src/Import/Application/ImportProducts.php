@@ -41,6 +41,12 @@ final readonly class ImportProducts
                 throw CsvTooLarge::rows(self::MAX_ROWS);
             }
 
+            if (ProductRowParser::isBlank($record)) {
+                $blankRows++;
+
+                continue;
+            }
+
             $fieldCountError = $header->fieldCountError($record);
             if ($fieldCountError !== null) {
                 $fieldCountErrors[$row] = $fieldCountError;
@@ -48,14 +54,7 @@ final readonly class ImportProducts
                 continue;
             }
 
-            $fields = $header->map($record);
-            if (ProductRowParser::isBlank($fields)) {
-                $blankRows++;
-
-                continue;
-            }
-
-            $parsedRows[$row] = $this->parser->parse($fields);
+            $parsedRows[$row] = $this->parser->parse($header->map($record));
         }
 
         if ($header === null) {
@@ -65,21 +64,27 @@ final readonly class ImportProducts
         $duplicates = self::duplicateErrors($parsedRows);
         $results = [];
         $newCategories = [];
-        $applied = [];
+        $first = [];
 
         foreach ($fieldCountErrors as $row => $error) {
             $results[$row] = RowResult::failed($row, '', ['row' => [$error]]);
         }
 
         foreach ($parsedRows as $row => $parsed) {
+            $groupedBySku = ! array_key_exists('sku', $parsed->errors);
+
             if (isset($duplicates[$row])) {
                 $results[$row] = RowResult::failed($row, $parsed->sku, array_merge(['sku' => [$duplicates[$row]]], $parsed->errors));
-            } elseif ($parsed->product === null) {
-                $results[$row] = RowResult::failed($row, $parsed->sku, $parsed->errors);
-            } elseif (isset($applied[$parsed->sku])) {
-                $results[$row] = $applied[$parsed->sku]->repeatedAt($row);
+            } elseif ($groupedBySku && isset($first[$parsed->sku])) {
+                $results[$row] = $first[$parsed->sku]->repeatedAt($row);
             } else {
-                $results[$row] = $applied[$parsed->sku] = $this->apply($row, $parsed->product, $newCategories);
+                $results[$row] = $parsed->product === null
+                    ? RowResult::failed($row, $parsed->sku, $parsed->errors)
+                    : $this->apply($row, $parsed->product, $newCategories);
+
+                if ($groupedBySku) {
+                    $first[$parsed->sku] = $results[$row];
+                }
             }
         }
 
@@ -97,7 +102,7 @@ final readonly class ImportProducts
         $groups = [];
         foreach ($parsedRows as $row => $parsed) {
             if (! array_key_exists('sku', $parsed->errors)) {
-                $groups[$parsed->sku][$row] = $parsed->product === null ? "invalid:{$row}" : self::signature($parsed->product);
+                $groups[$parsed->sku][$row] = $parsed->signature;
             }
         }
 
@@ -110,18 +115,6 @@ final readonly class ImportProducts
         }
 
         return $errors;
-    }
-
-    private static function signature(Product $product): string
-    {
-        return serialize([
-            $product->name()->normalized(),
-            $product->description(),
-            $product->category()->normalized(),
-            $product->price()->cents(),
-            $product->stock()->quantity(),
-            $product->weight()?->grams(),
-        ]);
     }
 
     /** @param  array<string, string>  $newCategories */

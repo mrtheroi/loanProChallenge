@@ -10,6 +10,7 @@ use Ecommerce\Catalog\Infrastructure\ProductModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Testing\TestResponse;
 use Tests\Feature\Catalog\AdminCatalog;
 
@@ -164,11 +165,11 @@ it('applies identical repeated rows once and reports the repeats as unchanged', 
 });
 
 it('skips and counts rows whose fields are all blank', function (): void {
-    importCsv(IMPORT_HEADER.",,,,,,\n  , ,,,,,\nMug,TM-029,,Kitchen,16.99,3,\n")
+    importCsv(IMPORT_HEADER.",,,,,,\n  , ,,,,,\n\n,,\nMug,TM-029,,Kitchen,16.99,3,\n")
         ->assertOk()
-        ->assertJsonPath('summary', ['created' => 1, 'updated' => 0, 'unchanged' => 0, 'failed' => 0, 'blank_rows' => 2])
+        ->assertJsonPath('summary', ['created' => 1, 'updated' => 0, 'unchanged' => 0, 'failed' => 0, 'blank_rows' => 4])
         ->assertJsonCount(1, 'rows')
-        ->assertJsonPath('rows.0.row', 4);
+        ->assertJsonPath('rows.0.row', 6);
 });
 
 it('fails a row whose field count differs from the header', function (): void {
@@ -191,6 +192,7 @@ it('rejects the whole file when the header is not the expected one', function (s
 })->with([
     'missing column' => ["name,sku,description,category,price,stock\nMug,TM-029,,Kitchen,1,1\n", 'The CSV header is missing the column(s): weight_kg.'],
     'empty file' => ['', 'The CSV header is missing the column(s): name, sku, description, category, price, stock, weight_kg.'],
+    'trailing comma' => ["name,sku,description,category,price,stock,weight_kg,\nMug,TM-029,,Kitchen,1,1,,\n", 'The CSV header has unnamed column(s) at position(s): 8.'],
     'invalid utf-8 column' => ["name,sku,description,category,price,stock,weight_kg,caf\xE9\n", 'The CSV header has unknown column(s): caf?.'],
 ]);
 
@@ -302,4 +304,33 @@ it('reports an identical repeat as failed when the first of those rows failed', 
         ->assertJsonPath('rows.1', ['row' => 3, 'sku' => 'RS-001', 'status' => 'failed', 'errors' => [
             'name' => ['does not match the existing product "Running Shoes"; the import cannot rename products'],
         ], 'note' => 'identical to row 2']);
+});
+
+it('treats identical invalid rows as repeats instead of different data', function (): void {
+    importCsv(IMPORT_HEADER."Mat,YM-015,Yoga,Sports,free,200,1.2\nMat,ym-015,Yoga,Sports,free,200,1.2\n")
+        ->assertOk()
+        ->assertJsonPath('summary', ['created' => 0, 'updated' => 0, 'unchanged' => 0, 'failed' => 2, 'blank_rows' => 0])
+        ->assertJsonPath('rows', [
+            ['row' => 2, 'sku' => 'YM-015', 'status' => 'failed', 'errors' => ['price' => ['must be a non-negative decimal number with at most 2 decimals']], 'note' => null],
+            ['row' => 3, 'sku' => 'YM-015', 'status' => 'failed', 'errors' => ['price' => ['must be a non-negative decimal number with at most 2 decimals']], 'note' => 'identical to row 2'],
+        ]);
+});
+
+it('stores sql and script payloads as plain text without executing them', function (): void {
+    seedExistingShoes();
+    $sql = "Robert'); DROP TABLE products;--";
+    $delete = "x'; DELETE FROM products; DROP TABLE users; --";
+    $script = "<script>alert('xss')</script>";
+
+    importCsv(IMPORT_HEADER."\"{$sql}\",SQL-001,\"{$delete}\",\"{$script}\",9.99,50,0.5\n")
+        ->assertOk()
+        ->assertJsonPath('rows.0.status', 'created');
+
+    $stored = ProductModel::query()->with('category')->where('sku', 'SQL-001')->sole();
+    expect(Schema::hasTable('products'))->toBeTrue()
+        ->and(Schema::hasTable('users'))->toBeTrue()
+        ->and(ProductModel::query()->where('sku', 'RS-001')->exists())->toBeTrue()
+        ->and($stored->name)->toBe($sql)
+        ->and($stored->description)->toBe($delete)
+        ->and($stored->category->name)->toBe($script);
 });
