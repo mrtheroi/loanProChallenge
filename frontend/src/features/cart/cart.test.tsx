@@ -1,7 +1,8 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
+import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { useCartStore } from '@/features/cart/cartStore'
-import { authHandlers } from '@/test/auth-handlers'
+import { admin, authHandlers, buyer } from '@/test/auth-handlers'
 import { catalogHandlers, product } from '@/test/catalog-handlers'
 import { renderRoute } from '@/test/render'
 import { server } from '@/test/server'
@@ -80,5 +81,68 @@ describe('cart', () => {
     const mug = await screen.findByRole('article', { name: 'Mug' })
     expect(within(mug).getByRole('button', { name: 'Add to cart' })).toBeDisabled()
     expect(within(mug).getByText('Your cart can hold up to 50 different products.')).toBeInTheDocument()
+  })
+  it('shows how many units are in stock next to each cart line', async () => {
+    server.use(...authHandlers(null).handlers, ...catalogHandlers([product({ stock: 5 }), product({ sku: 'CUP-1', name: 'Cup', stock: 1 })]).handlers)
+    const { user } = renderRoute('/')
+
+    await user.click(within(await screen.findByRole('article', { name: 'Mug' })).getByRole('button', { name: 'Add to cart' }))
+    await user.click(within(screen.getByRole('article', { name: 'Cup' })).getByRole('button', { name: 'Add to cart' }))
+    await user.click(screen.getByRole('link', { name: 'Cart (2)' }))
+
+    expect(within(await screen.findByRole('listitem', { name: 'Mug' })).getByText('5 in stock')).toBeInTheDocument()
+    expect(within(screen.getByRole('listitem', { name: 'Cup' })).getByText('1 in stock')).toBeInTheDocument()
+  })
+  it('confirms that a product was added to the cart', async () => {
+    server.use(...authHandlers(null).handlers, ...catalogHandlers([product({ stock: 5 })]).handlers)
+    const { user } = renderRoute('/')
+
+    const mug = await screen.findByRole('article', { name: 'Mug' })
+    expect(within(mug).queryByRole('status')).not.toBeInTheDocument()
+    await user.click(within(mug).getByRole('button', { name: 'Add to cart' }))
+
+    expect(within(mug).getByRole('status')).toHaveTextContent('Added to cart')
+    await waitFor(() => expect(within(mug).queryByRole('status')).not.toBeInTheDocument(), { timeout: 3000 })
+  })
+  it('tells an admin that only buyer accounts can check out instead of offering checkout', async () => {
+    useCartStore.getState().add({ sku: 'MUG-1', name: 'Mug', price: '16.99', stock: 5 })
+    server.use(...authHandlers(admin).handlers)
+    renderRoute('/cart')
+
+    expect(await screen.findByText('Admin accounts cannot place orders. Sign in with a buyer account to check out.')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Checkout' })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['a buyer', buyer],
+    ['a guest', null],
+  ])('keeps offering checkout to %s', async (_who, account) => {
+    useCartStore.getState().add({ sku: 'MUG-1', name: 'Mug', price: '16.99', stock: 5 })
+    server.use(...authHandlers(account).handlers)
+    renderRoute('/cart')
+
+    expect(await screen.findByRole('link', { name: 'Checkout' })).toHaveAttribute('href', '/checkout')
+    expect(screen.queryByText(/Admin accounts cannot place orders/)).not.toBeInTheDocument()
+  })
+
+  it('does not offer checkout to an admin while the session is still loading', async () => {
+    useCartStore.getState().add({ sku: 'MUG-1', name: 'Mug', price: '16.99', stock: 5 })
+    let release: () => void = () => undefined
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    server.use(
+      http.get('/api/auth/me', async () => {
+        await held
+        return HttpResponse.json({ data: admin })
+      }),
+      ...authHandlers(admin).handlers,
+    )
+    renderRoute('/cart')
+
+    expect(await screen.findByRole('listitem', { name: 'Mug' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Checkout' })).not.toBeInTheDocument()
+    release()
+    expect(await screen.findByText(/Admin accounts cannot place orders/)).toBeInTheDocument()
   })
 })

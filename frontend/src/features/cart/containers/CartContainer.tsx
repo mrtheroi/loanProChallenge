@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { useCurrentUser } from '@/features/auth/hooks/useAuth'
 import { formatCents, toCents } from '@/shared/lib/money'
 import { Button } from '@/shared/ui/button'
 import { useCartStore } from '../cartStore'
@@ -10,6 +11,7 @@ export function CartContainer() {
   const items = useCartStore((state) => state.items)
   const setQuantity = useCartStore((state) => state.setQuantity)
   const remove = useCartStore((state) => state.remove)
+  const { data: user, isPending: checkingSession } = useCurrentUser()
   const lines = Object.values(items)
 
   if (lines.length === 0) {
@@ -35,6 +37,7 @@ export function CartContainer() {
             <div>
               <p className="font-medium">{line.name}</p>
               <p className="text-sm text-muted-foreground">{formatCents(toCents(line.price))} each</p>
+              <p className="text-sm text-muted-foreground">{line.stock} in stock</p>
             </div>
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 text-sm">
@@ -52,9 +55,12 @@ export function CartContainer() {
       <div className="flex flex-col items-end gap-2">
         <p className="text-lg font-semibold">Subtotal: {formatCents(subtotal)}</p>
         <p className="text-sm text-muted-foreground">Prices and stock are confirmed when you check out.</p>
-        <Button asChild>
-          <Link to="/checkout">Checkout</Link>
-        </Button>
+        {user?.role === 'admin' && <p className="text-sm font-medium">Admin accounts cannot place orders. Sign in with a buyer account to check out.</p>}
+        {!checkingSession && user?.role !== 'admin' && (
+          <Button asChild>
+            <Link to="/checkout">Checkout</Link>
+          </Button>
+        )}
       </div>
     </section>
   )
