@@ -292,16 +292,30 @@ it('treats the same lines in another order as the same request for numeric skus'
     Checkout::place($buyer, Checkout::payload([['sku' => '01', 'quantity' => 2], ['sku' => '1', 'quantity' => 1]]), $key)->assertOk();
 });
 
-it('rejects a reused key with another card that shares brand, last four and expiry', function (array $card): void {
+it('compares cards by brand, last four and expiry only, so no card secret is ever stored', function (array $card, int $status): void {
     Checkout::product('MUG-1', '1.00', 10);
     $buyer = Checkout::buyer();
     $key = '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10';
     Checkout::place($buyer, Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]]), $key)->assertCreated();
 
-    Checkout::place($buyer, Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]], $card), $key)
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors(['idempotency_key']);
+    Checkout::place($buyer, Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]], $card), $key)->assertStatus($status);
+
+    expect(ProductModel::query()->where('sku', 'MUG-1')->value('stock'))->toBe(9);
 })->with([
-    'other number' => [['number' => '4000056655664242']],
-    'other cvc' => [['cvc' => '999']],
+    'same last four and expiry replays' => [['number' => '4000056655664242', 'cvc' => '999'], 200],
+    'different last four is another request' => [['number' => '4000000000000077'], 422],
+    'different expiry is another request' => [['exp_month' => 11], 422],
 ]);
+
+it('replays a paid order even after the card has expired', function (): void {
+    Checkout::product('MUG-1', '1.00', 10);
+    $buyer = Checkout::buyer();
+    $key = '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10';
+    $payload = Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]], ['exp_month' => (int) now()->format('n'), 'exp_year' => (int) now()->format('Y')]);
+    $first = Checkout::place($buyer, $payload, $key)->assertCreated()->json();
+
+    $this->travel(2)->months();
+
+    expect(Checkout::place($buyer, $payload, $key)->assertOk()->json())->toBe($first);
+    Checkout::place($buyer, $payload)->assertUnprocessable()->assertJsonValidationErrors(['card.exp_year']);
+});

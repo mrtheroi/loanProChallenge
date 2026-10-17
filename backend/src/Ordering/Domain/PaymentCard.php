@@ -9,9 +9,13 @@ use Stringable;
 
 final readonly class PaymentCard implements Stringable
 {
-    private function __construct(private string $number, private string $cvc) {}
+    private function __construct(
+        private string $number,
+        private int $expMonth,
+        private int $expYear,
+    ) {}
 
-    public static function fromInput(string $number, int $expMonth, int $expYear, string $cvc, DateTimeImmutable $today): self
+    public static function fromInput(string $number, int $expMonth, int $expYear, string $cvc): self
     {
         $digits = str_replace([' ', '-'], '', $number);
 
@@ -23,20 +27,16 @@ final readonly class PaymentCard implements Stringable
             throw InvalidOrderInput::because('card.exp_month', 'must be between 1 and 12');
         }
 
-        if (sprintf('%04d%02d', $expYear, $expMonth) < $today->format('Ym')) {
-            throw InvalidOrderInput::because('card.exp_year', 'the card has expired');
-        }
-
         if (preg_match('/^\d{3,4}$/D', $cvc) !== 1) {
             throw InvalidOrderInput::because('card.cvc', 'must contain 3 or 4 digits');
         }
 
-        return new self($digits, $cvc);
+        return new self($digits, $expMonth, $expYear);
     }
 
-    public function fingerprint(string $secret): string
+    public function isExpiredOn(DateTimeImmutable $today): bool
     {
-        return hash_hmac('sha256', $this->number.'|'.$this->cvc, $secret);
+        return sprintf('%04d%02d', $this->expYear, $this->expMonth) < $today->format('Ym');
     }
 
     public function number(): string
@@ -47,6 +47,16 @@ final readonly class PaymentCard implements Stringable
     public function last4(): string
     {
         return substr($this->number, -4);
+    }
+
+    public function expMonth(): int
+    {
+        return $this->expMonth;
+    }
+
+    public function expYear(): int
+    {
+        return $this->expYear;
     }
 
     public function brand(): string

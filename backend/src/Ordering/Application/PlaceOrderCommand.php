@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ecommerce\Ordering\Application;
 
+use DateTimeImmutable;
 use Ecommerce\Ordering\Domain\PaymentCard;
 
 final readonly class PlaceOrderCommand
@@ -14,11 +15,13 @@ final readonly class PlaceOrderCommand
         public string $idempotencyKey,
         public array $quantitiesBySku,
         public PaymentCard $card,
-        public int $cardExpMonth,
-        public int $cardExpYear,
-        public string $paymentFingerprint,
+        public DateTimeImmutable $today,
     ) {}
 
+    /**
+     * Identifies the request without any card secret: only brand, last four
+     * and expiry are compared, so nothing derived from the number or CVC is stored.
+     */
     public function requestHash(): string
     {
         $lines = [];
@@ -29,7 +32,7 @@ final readonly class PlaceOrderCommand
 
         return hash('sha256', (string) json_encode([
             'items' => $lines,
-            'card' => [$this->paymentFingerprint, $this->cardExpMonth, $this->cardExpYear],
+            'card' => [$this->card->brand(), $this->card->last4(), $this->card->expMonth(), $this->card->expYear()],
         ]));
     }
 }

@@ -7,7 +7,7 @@ use Ecommerce\Ordering\Domain\PaymentCard;
 
 function card(string $number = '4242 4242 4242 4242', int $month = 12, int $year = 2030, string $cvc = '123'): PaymentCard
 {
-    return PaymentCard::fromInput($number, $month, $year, $cvc, new DateTimeImmutable('2026-10-16'));
+    return PaymentCard::fromInput($number, $month, $year, $cvc);
 }
 
 it('keeps only the digits of the number and exposes brand and last four', function (string $number, string $brand): void {
@@ -33,14 +33,15 @@ it('rejects an invalid card', function (string $number, int $month, int $year, s
     'too long' => ['42424242424242424242', 12, 2030, '123', 'number'],
     'month zero' => ['4242424242424242', 0, 2030, '123', 'exp_month'],
     'month thirteen' => ['4242424242424242', 13, 2030, '123', 'exp_month'],
-    'expired last month' => ['4242424242424242', 9, 2026, '123', 'exp_year'],
-    'expired last year' => ['4242424242424242', 12, 2025, '123', 'exp_year'],
     'cvc too short' => ['4242424242424242', 12, 2030, '12', 'cvc'],
     'cvc letters' => ['4242424242424242', 12, 2030, '12a', 'cvc'],
 ]);
 
-it('accepts a card that expires in the current month', function (): void {
-    expect(card('4242424242424242', 10, 2026)->last4())->toBe('4242');
+it('treats a card as valid through the end of its expiry month', function (): void {
+    $card = card('4242424242424242', 10, 2026);
+
+    expect($card->isExpiredOn(new DateTimeImmutable('2026-10-31')))->toBeFalse()
+        ->and($card->isExpiredOn(new DateTimeImmutable('2026-11-01')))->toBeTrue();
 });
 
 it('never exposes the cvc or the full number when cast to string or debugged', function (): void {
@@ -49,14 +50,4 @@ it('never exposes the cvc or the full number when cast to string or debugged', f
     expect((string) $card)->toBe('visa ending in 4242')
         ->and(print_r($card, true))->not->toContain('4242424242424242')
         ->and(print_r($card, true))->not->toContain('123');
-});
-
-it('fingerprints the full number and cvc without exposing them', function (): void {
-    $fingerprint = card()->fingerprint('secret');
-
-    expect($fingerprint)->toMatch('/^[0-9a-f]{64}$/')
-        ->and($fingerprint)->toBe(card('4242424242424242')->fingerprint('secret'))
-        ->and($fingerprint)->not->toBe(card('4000056655664242')->fingerprint('secret'))
-        ->and($fingerprint)->not->toBe(card(cvc: '999')->fingerprint('secret'))
-        ->and($fingerprint)->not->toBe(card()->fingerprint('other secret'));
 });

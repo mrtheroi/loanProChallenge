@@ -59,25 +59,17 @@ final class PlaceOrderRequest extends FormRequest
             $quantities[$sku] = (int) $item['quantity'];
         }
 
-        $expMonth = $this->integer('card.exp_month');
-        $expYear = $this->integer('card.exp_year');
-
-        $card = PaymentCard::fromInput(
-            $this->string('card.number')->toString(),
-            $expMonth,
-            $expYear,
-            $this->string('card.cvc')->toString(),
-            now()->toDateTimeImmutable(),
-        );
-
         return new PlaceOrderCommand(
             AuthenticatedUser::id($this),
             strtolower($key),
             $quantities,
-            $card,
-            $expMonth,
-            $expYear,
-            $card->fingerprint(config()->string('app.key')),
+            PaymentCard::fromInput(
+                $this->string('card.number')->toString(),
+                $this->integer('card.exp_month'),
+                $this->integer('card.exp_year'),
+                $this->string('card.cvc')->toString(),
+            ),
+            now()->toDateTimeImmutable(),
         );
     }
 }

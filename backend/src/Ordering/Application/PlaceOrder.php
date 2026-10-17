@@ -46,6 +46,10 @@ final readonly class PlaceOrder
 
     private function place(PlaceOrderCommand $command, string $requestHash): Order
     {
+        if ($command->card->isExpiredOn($command->today)) {
+            throw InvalidOrderInput::because('card.exp_year', 'the card has expired');
+        }
+
         $orderId = $this->orders->claim($command->userId, $command->idempotencyKey, $requestHash, $command->card);
 
         $skus = array_map(strval(...), array_keys($command->quantitiesBySku));

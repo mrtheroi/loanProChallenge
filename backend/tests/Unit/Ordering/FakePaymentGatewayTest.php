@@ -8,7 +8,7 @@ use Ecommerce\Ordering\Infrastructure\FakePaymentGateway;
 
 function testCard(string $number): PaymentCard
 {
-    return PaymentCard::fromInput($number, 12, 2030, '123', new DateTimeImmutable('2026-10-16'));
+    return PaymentCard::fromInput($number, 12, 2030, '123');
 }
 
 it('approves the 4242 test card and returns a charge reference', function (): void {
