@@ -103,3 +103,17 @@ describe('product detail', () => {
     expect(await screen.findByRole('heading', { name: 'Product not found' })).toBeInTheDocument()
   })
 })
+
+describe('catalog states', () => {
+  it('shows a loading state and a way back from a page past the end', async () => {
+    server.use(...authHandlers(null).handlers, ...catalogHandlers([product()]).handlers)
+    const { user } = renderRoute('/?page=9')
+
+    expect(screen.getByText('Loading products…')).toBeInTheDocument()
+    expect(await screen.findByText('This page is past the end of the results.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Go to the first page' }))
+
+    expect(await screen.findByRole('article', { name: 'Mug' })).toBeInTheDocument()
+  })
+})

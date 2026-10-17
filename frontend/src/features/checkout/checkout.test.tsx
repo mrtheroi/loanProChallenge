@@ -108,12 +108,10 @@ describe('checkout', () => {
   it('reuses the key when the same payment is retried after a network failure and makes a new one for a changed payment', async () => {
     fillCart()
     const keys: Array<string | null> = []
-    let fail = true
     server.use(
       http.post('/api/orders', ({ request }) => {
         keys.push(request.headers.get('Idempotency-Key'))
-        if (fail) return HttpResponse.error()
-        return HttpResponse.json({ message: 'Your card was declined.' }, { status: 402 })
+        return HttpResponse.error()
       }),
       ...authHandlers(buyer).handlers,
     )
@@ -121,9 +119,8 @@ describe('checkout', () => {
 
     await payWith(user)
     expect(await screen.findByRole('alert')).toHaveTextContent('We could not reach the server.')
-    fail = false
     await user.click(screen.getByRole('button', { name: /^Pay / }))
-    await screen.findByText('Your card was declined.')
+    await waitFor(() => expect(keys).toHaveLength(2))
 
     await user.clear(screen.getByLabelText('CVC'))
     await user.type(screen.getByLabelText('CVC'), '999')
@@ -141,5 +138,25 @@ describe('checkout', () => {
 
     expect(await screen.findByText('Your cart is empty.')).toBeInTheDocument()
     expect(screen.queryByLabelText('Card number')).not.toBeInTheDocument()
+  })
+
+  it('uses a new key for the next attempt once the server has answered', async () => {
+    fillCart()
+    const keys: Array<string | null> = []
+    server.use(
+      http.post('/api/orders', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'))
+        return HttpResponse.json({ message: 'Your card was declined.' }, { status: 402 })
+      }),
+      ...authHandlers(buyer).handlers,
+    )
+    const { user } = renderRoute('/checkout')
+
+    await payWith(user)
+    await screen.findByText('Your card was declined.')
+    await user.click(screen.getByRole('button', { name: /^Pay / }))
+    await waitFor(() => expect(keys).toHaveLength(2))
+
+    expect(keys[1]).not.toBe(keys[0])
   })
 })

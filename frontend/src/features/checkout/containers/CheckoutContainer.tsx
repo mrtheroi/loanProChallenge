@@ -26,16 +26,20 @@ export function CheckoutContainer() {
   const clear = useCartStore((state) => state.clear)
   const limit = useCartStore((state) => state.limit)
   const navigate = useNavigate()
-  const keyFor = useIdempotencyKey()
+  const { keyFor, settle } = useIdempotencyKey()
   const [problem, setProblem] = useState<Problem | null>(null)
 
   const checkout = useMutation({
     mutationFn: ({ key, payload }: { key: string; payload: CheckoutPayload }) => placeOrder(key, payload),
     onSuccess: async (order) => {
+      settle()
       clear()
       await navigate(`/orders/${order.id}`, { state: { placed: true } })
     },
-    onError: (error) => setProblem(problemFrom(error)),
+    onError: (error) => {
+      if (error instanceof ApiError) settle()
+      setProblem(problemFrom(error))
+    },
   })
 
   const lines = Object.values(items)

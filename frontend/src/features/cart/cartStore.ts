@@ -50,9 +50,39 @@ export const useCartStore = create<CartState>()(
         }),
       clear: () => set({ items: {} }),
     }),
-    { name: 'loanpro-cart', storage: createJSONStorage(() => localStorage), partialize: (state) => ({ items: state.items }) },
+    {
+      name: 'loanpro-cart',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({ items: state.items }),
+      merge: (persisted, current) => ({ ...current, items: validLines(persisted) }),
+    },
   ),
 )
+
+const PRICE = /^\d+(?:\.\d{1,2})?$/
+
+function isCartLine(value: unknown): value is CartLine {
+  if (value === null || typeof value !== 'object') return false
+  const line = value as Record<string, unknown>
+
+  return (
+    typeof line.sku === 'string' &&
+    typeof line.name === 'string' &&
+    typeof line.price === 'string' &&
+    PRICE.test(line.price) &&
+    Number.isInteger(line.stock) &&
+    Number.isInteger(line.quantity) &&
+    (line.quantity as number) >= 1 &&
+    (line.quantity as number) <= (line.stock as number)
+  )
+}
+
+function validLines(persisted: unknown): Record<string, CartLine> {
+  const items = (persisted as { items?: unknown } | null)?.items
+  if (items === null || typeof items !== 'object') return {}
+
+  return Object.fromEntries(Object.entries(items).filter((entry): entry is [string, CartLine] => isCartLine(entry[1]) && entry[1].sku === entry[0]))
+}
 
 export function cartLineCount(items: Record<string, CartLine>): number {
   return Object.values(items).reduce((total, line) => total + line.quantity, 0)

@@ -30,7 +30,18 @@ export function CatalogContainer() {
         </div>
       )}
 
-      {products.data && products.data.data.length === 0 && <p className="text-muted-foreground">No products match your search.</p>}
+      {products.isPending && <p className="text-muted-foreground">Loading products…</p>}
+
+      {products.data && products.data.data.length === 0 && products.data.meta.total === 0 && <p className="text-muted-foreground">No products match your search.</p>}
+
+      {products.data && products.data.data.length === 0 && products.data.meta.total > 0 && (
+        <div className="flex flex-col items-start gap-3">
+          <p>This page is past the end of the results.</p>
+          <Button variant="outline" onClick={() => goToPage(1)}>
+            Go to the first page
+          </Button>
+        </div>
+      )}
 
       {products.data && products.data.data.length > 0 && (
         <>
