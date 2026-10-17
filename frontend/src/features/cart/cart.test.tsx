@@ -179,4 +179,17 @@ describe('cart', () => {
     await user.tab()
     expect(within(line).queryByRole('alert')).not.toBeInTheDocument()
   })
+  it('explains the per-product limit when it, not the stock, reduces the quantity', async () => {
+    useCartStore.getState().add({ sku: 'CB-1', name: 'Coffee beans', price: '18.75', stock: 1200 })
+    server.use(...authHandlers(buyer).handlers)
+    const { user } = renderRoute('/cart')
+
+    const line = await screen.findByRole('listitem', { name: 'Coffee beans' })
+    await user.clear(within(line).getByLabelText('Quantity'))
+    await user.type(within(line).getByLabelText('Quantity'), '1500')
+    await user.tab()
+
+    expect(within(line).getByLabelText('Quantity')).toHaveValue(999)
+    expect(within(line).getByRole('alert')).toHaveTextContent('You can order up to 999 units of a product. The quantity was set to 999.')
+  })
 })

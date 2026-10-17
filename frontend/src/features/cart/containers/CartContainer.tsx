@@ -5,7 +5,7 @@ import { formatCents, toCents } from '@/shared/lib/money'
 import { Button } from '@/shared/ui/button'
 import { useCartStore } from '../cartStore'
 import { QuantityInput } from '../components/QuantityInput'
-import { maxQuantity } from '../limits'
+import { MAX_QUANTITY_PER_LINE, maxQuantity } from '../limits'
 import { cartSubtotalCents, lineTotalCents } from '../totals'
 
 export function CartContainer() {
@@ -59,7 +59,8 @@ export function CartContainer() {
             </div>
             {cappedAt[line.sku] !== undefined && (
               <p role="alert" className="w-full text-sm text-destructive">
-                Only {line.stock} in stock. The quantity was set to {cappedAt[line.sku]}.
+                {line.stock > MAX_QUANTITY_PER_LINE ? `You can order up to ${MAX_QUANTITY_PER_LINE} units of a product.` : `Only ${line.stock} in stock.`} The quantity was set to{' '}
+                {cappedAt[line.sku]}.
               </p>
             )}
           </li>
