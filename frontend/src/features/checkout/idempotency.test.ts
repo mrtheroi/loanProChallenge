@@ -48,7 +48,7 @@ describe('idempotency keys', () => {
     expect(await idempotencyKeyFor(7, 'other payment')).not.toBe(first)
     expect(await idempotencyKeyFor(7, 'payment')).toBe(first)
 
-    await settlePayment(7, 'payment')
+    await settlePayment(7, 'payment', first)
     const next = await idempotencyKeyFor(7, 'payment')
     expect(next).not.toBe(first)
     expect(await idempotencyKeyFor(7, 'payment')).toBe(next)
@@ -60,11 +60,26 @@ describe('idempotency keys', () => {
     const otherTab = await import('./idempotency')
     expect(await otherTab.idempotencyKeyFor(7, 'shared payment')).toBe(key)
 
-    await settlePayment(7, 'shared payment')
+    await settlePayment(7, 'shared payment', key)
     const next = await idempotencyKeyFor(7, 'shared payment')
 
     expect(next).not.toBe(key)
     expect(await otherTab.idempotencyKeyFor(7, 'shared payment')).toBe(key)
+  })
+
+  it('does not let a late settlement delete a newer attempt for the same payment', async () => {
+    const first = await idempotencyKeyFor(7, 'repeat payment')
+    vi.resetModules()
+    const lateTab = await import('./idempotency')
+    await lateTab.idempotencyKeyFor(7, 'repeat payment')
+
+    await settlePayment(7, 'repeat payment', first)
+    const second = await idempotencyKeyFor(7, 'repeat payment')
+    await lateTab.settlePayment(7, 'repeat payment', first)
+    vi.resetModules()
+    const reloadedTab = await import('./idempotency')
+
+    expect(await reloadedTab.idempotencyKeyFor(7, 'repeat payment')).toBe(second)
   })
 
   it('never stores card details', async () => {
@@ -79,7 +94,7 @@ describe('idempotency keys', () => {
     })
     const first = await idempotencyKeyFor(9, 'fp-memory')
 
-    await settlePayment(9, 'fp-memory')
+    await settlePayment(9, 'fp-memory', first)
 
     expect(await idempotencyKeyFor(9, 'fp-memory')).not.toBe(first)
     setItem.mockRestore()

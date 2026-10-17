@@ -55,9 +55,18 @@ function readAttempt(slot: string): string | undefined {
   }
 }
 
-/** Runs the callback while holding a lock shared by every tab of this site, when the browser supports it. */
+/** Raised when the browser cannot serialize checkout across tabs, so paying could charge twice. */
+export class CheckoutUnavailable extends Error {
+  constructor() {
+    super('This browser cannot place orders safely. Please update it and try again.')
+  }
+}
+
+/** Runs the callback while holding a lock shared by every tab of this site; without one there is no safe fallback. */
 async function withCrossTabLock<T>(name: string, callback: () => T): Promise<T> {
-  return 'locks' in navigator ? navigator.locks.request(name, async () => callback()) : callback()
+  if (!('locks' in navigator)) throw new CheckoutUnavailable()
+
+  return navigator.locks.request(name, async () => callback())
 }
 
 /**
@@ -86,15 +95,22 @@ export async function idempotencyKeyFor(userId: number, fingerprint: string): Pr
   })
 }
 
-/** Ends this payment's attempt once its outcome is known. */
-export async function settlePayment(userId: number, fingerprint: string): Promise<void> {
+/**
+ * Ends the attempt that used this key once its outcome is known. Under the same
+ * lock, the shared entry is removed only while it still holds that key, so a late
+ * outcome never deletes a newer attempt another tab started for the same payment.
+ */
+export async function settlePayment(userId: number, fingerprint: string, key: string): Promise<void> {
   const slot = await slotFor(userId, fingerprint)
-  memoryAttempts.delete(slot)
-  try {
-    localStorage.removeItem(ATTEMPT_PREFIX + slot)
-  } catch {
-    // Nothing else to forget.
-  }
+
+  await withCrossTabLock(`loanpro-checkout:${slot}`, () => {
+    if (memoryAttempts.get(slot) === key) memoryAttempts.delete(slot)
+    try {
+      if (localStorage.getItem(ATTEMPT_PREFIX + slot) === key) localStorage.removeItem(ATTEMPT_PREFIX + slot)
+    } catch {
+      // Nothing else to forget.
+    }
+  })
 }
 
 const OUTCOME_STATUSES = new Set([402, 409, 422])

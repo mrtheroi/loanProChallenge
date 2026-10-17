@@ -1,14 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router'
+import { useCurrentUser } from '@/features/auth/hooks/useAuth'
 import { Pagination } from '@/shared/ui/Pagination'
 import { formatCents, toCents } from '@/shared/lib/money'
 import { Button } from '@/shared/ui/button'
-import { listOrders } from '../api/ordersApi'
+import { listOrders, ordersQueryKey } from '../api/ordersApi'
 
 export function OrdersListContainer() {
   const [params, setParams] = useSearchParams()
   const page = Math.max(1, Number.parseInt(params.get('page') ?? '1', 10) || 1)
-  const orders = useQuery({ queryKey: ['orders', page], queryFn: () => listOrders(page) })
+  const { data: user } = useCurrentUser()
+  const orders = useQuery({ queryKey: ordersQueryKey(user?.id, page), queryFn: () => listOrders(page), enabled: user != null })
 
   return (
     <section className="flex flex-col gap-6">

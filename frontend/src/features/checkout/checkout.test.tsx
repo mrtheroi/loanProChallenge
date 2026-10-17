@@ -244,6 +244,50 @@ describe('checkout', () => {
     expect(orders.placed).toHaveLength(0)
   })
 
+  it('sends a single payment when the pay button is double clicked', async () => {
+    fillCart()
+    const orders = orderHandlers()
+    server.use(...authHandlers(buyer).handlers, ...orders.handlers)
+    const { user } = renderRoute('/checkout')
+
+    await user.type(await screen.findByLabelText('Card number'), '4242 4242 4242 4242')
+    await user.type(screen.getByLabelText('Expiry month'), '12')
+    await user.type(screen.getByLabelText('Expiry year'), '2030')
+    await user.type(screen.getByLabelText('CVC'), '123')
+    await user.dblClick(screen.getByRole('button', { name: /^Pay / }))
+
+    expect(await screen.findByText('Thank you! Your order is confirmed.')).toBeInTheDocument()
+    expect(orders.placed).toHaveLength(1)
+  })
+
+  it('shows a problem instead of failing silently when the payment key cannot be prepared', async () => {
+    vi.spyOn(crypto.subtle, 'digest').mockRejectedValue(new Error('digest failed'))
+    fillCart()
+    const orders = orderHandlers()
+    server.use(...authHandlers(buyer).handlers, ...orders.handlers)
+    const { user } = renderRoute('/checkout')
+
+    await payWith(user)
+
+    expect(await screen.findByText('We could not reach the server. Check your connection and try again.')).toBeInTheDocument()
+    expect(orders.placed).toHaveLength(0)
+    expect(screen.getByRole('button', { name: /^Pay / })).toBeEnabled()
+  })
+
+  it('refuses to pay when the browser cannot coordinate checkout across tabs', async () => {
+    Reflect.deleteProperty(navigator, 'locks')
+    fillCart()
+    const orders = orderHandlers()
+    server.use(...authHandlers(buyer).handlers, ...orders.handlers)
+    const { user } = renderRoute('/checkout')
+
+    await payWith(user)
+
+    expect(await screen.findByText('This browser cannot place orders safely. Please update it and try again.')).toBeInTheDocument()
+    expect(orders.placed).toHaveLength(0)
+    expect(Object.keys(localStorage).filter((key) => key.startsWith('loanpro-checkout-attempt:'))).toEqual([])
+  })
+
   it('judges card expiry by the UTC month the backend uses, not the local one', async () => {
     vi.stubEnv('TZ', 'Pacific/Kiritimati')
     vi.useFakeTimers({ toFake: ['Date'] })

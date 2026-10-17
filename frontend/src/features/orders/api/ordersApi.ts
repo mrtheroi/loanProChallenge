@@ -23,8 +23,13 @@ export type Unavailable = { sku: string; requested: number; available: number }
 
 export type PriceChange = { sku: string; expected: string; current: string }
 
-export function orderQueryKey(id: string | number) {
-  return ['order', String(id)] as const
+/** Private keys carry the buyer's id, so a cache filled for one buyer is never read for another. */
+export function ordersQueryKey(userId: number | undefined, page: number) {
+  return ['orders', userId, page] as const
+}
+
+export function orderQueryKey(userId: number | undefined, id: string | number) {
+  return ['order', userId, String(id)] as const
 }
 
 export async function placeOrder(idempotencyKey: string, payload: CheckoutPayload): Promise<Order> {

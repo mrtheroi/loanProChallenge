@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useCurrentUser } from '@/features/auth/hooks/useAuth'
 import { useCartStore } from '@/features/cart/cartStore'
@@ -10,9 +10,9 @@ import { formatCents, toCents } from '@/shared/lib/money'
 import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { CardForm, type Card } from '../components/CardForm'
-import { idempotencyKeyFor, paymentFingerprint, settlePayment, settlesPayment } from '../idempotency'
+import { CheckoutUnavailable, idempotencyKeyFor, paymentFingerprint, settlePayment, settlesPayment } from '../idempotency'
 
-type Attempt = { userId: number; fingerprint: string; payload: CheckoutPayload }
+type Attempt = { userId: number; fingerprint: string; key: string; payload: CheckoutPayload }
 
 type Problem = { message: string; unavailable: Unavailable[]; priceChanges: PriceChange[] }
 
@@ -40,21 +40,23 @@ export function CheckoutContainer() {
   const { data: user } = useCurrentUser()
   const [problem, setProblem] = useState<Problem | null>(null)
   const [placedOrderId, setPlacedOrderId] = useState<number | null>(null)
+  const [preparing, setPreparing] = useState(false)
+  const submitting = useRef(false)
 
   const checkout = useMutation({
-    mutationFn: async ({ userId, fingerprint, payload }: Attempt) => placeOrder(await idempotencyKeyFor(userId, fingerprint), payload),
-    onSuccess: async (order, { userId, fingerprint }) => {
+    mutationFn: ({ key, payload }: Attempt) => placeOrder(key, payload),
+    onSuccess: async (order, { userId, fingerprint, key }) => {
       setPlacedOrderId(order.id)
-      queryClient.setQueryData(orderQueryKey(order.id), order)
+      queryClient.setQueryData(orderQueryKey(userId, order.id), order)
       await navigate(`/orders/${order.id}`, { state: { placed: true } })
       clear()
-      await settlePayment(userId, fingerprint)
+      await settlePayment(userId, fingerprint, key)
     },
-    onError: async (error, { userId, fingerprint }) => {
+    onError: async (error, { userId, fingerprint, key }) => {
       const found = problemFrom(error)
       found.priceChanges.forEach((change) => reprice(change.sku, change.current))
       setProblem(found)
-      if (error instanceof ApiError && settlesPayment(error.status)) await settlePayment(userId, fingerprint)
+      if (error instanceof ApiError && settlesPayment(error.status)) await settlePayment(userId, fingerprint, key)
     },
   })
 
@@ -78,11 +80,22 @@ export function CheckoutContainer() {
 
   const total = formatCents(cartSubtotalCents(lines))
 
-  const pay = (card: Card) => {
+  const pay = async (card: Card) => {
     const payload: CheckoutPayload = { items: lines.map((line) => ({ sku: line.sku, quantity: line.quantity, unit_price: line.price })), card }
     if (user === null || user === undefined) return
+    if (submitting.current) return
+    submitting.current = true
+    setPreparing(true)
     setProblem(null)
-    checkout.mutate({ userId: user.id, fingerprint: paymentFingerprint(payload), payload })
+    const fingerprint = paymentFingerprint(payload)
+    try {
+      checkout.mutate({ userId: user.id, fingerprint, key: await idempotencyKeyFor(user.id, fingerprint), payload })
+    } catch (error) {
+      setProblem(error instanceof CheckoutUnavailable ? { message: error.message, unavailable: [], priceChanges: [] } : problemFrom(error))
+    } finally {
+      submitting.current = false
+      setPreparing(false)
+    }
   }
 
   return (
@@ -137,7 +150,7 @@ export function CheckoutContainer() {
             </AlertDescription>
           </Alert>
         )}
-        <CardForm totalLabel={total} disabled={checkout.isPending} onSubmit={pay} />
+        <CardForm totalLabel={total} disabled={preparing || checkout.isPending} onSubmit={pay} />
       </div>
     </section>
   )

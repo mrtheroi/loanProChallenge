@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useLocation, useParams } from 'react-router'
+import { useCurrentUser } from '@/features/auth/hooks/useAuth'
 import { ApiError } from '@/shared/api/http'
 import { formatCents, toCents } from '@/shared/lib/money'
 import { Alert, AlertDescription } from '@/shared/ui/alert'
@@ -10,7 +11,8 @@ export function OrderDetailContainer() {
   const { id = '' } = useParams()
   const location = useLocation()
   const placed = (location.state as { placed?: boolean } | null)?.placed === true
-  const order = useQuery({ queryKey: orderQueryKey(id), queryFn: () => fetchOrder(id), staleTime: Infinity })
+  const { data: user } = useCurrentUser()
+  const order = useQuery({ queryKey: orderQueryKey(user?.id, id), queryFn: () => fetchOrder(id), staleTime: Infinity, enabled: user != null })
 
   if (order.isPending) return <p className="text-muted-foreground">Loading…</p>
 

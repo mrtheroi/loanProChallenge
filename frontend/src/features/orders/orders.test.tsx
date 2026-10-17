@@ -134,4 +134,32 @@ describe('my orders', () => {
     expect(await screen.findByRole('heading', { name: 'Order not found' })).toBeInTheDocument()
     expect(detailRequests).toEqual(['41', '41'])
   })
+  it('does not show a cached order after another tab signs in as a different buyer', async () => {
+    const detailRequests: string[] = []
+    let currentUser: typeof buyer = buyer
+    server.use(
+      http.get('/api/auth/me', () => HttpResponse.json({ data: currentUser })),
+      http.get('/api/orders/:id', ({ params }) => {
+        detailRequests.push(String(params.id))
+        return currentUser.id === buyer.id ? HttpResponse.json({ data: order({ id: 41 }) }) : HttpResponse.json({ message: 'Order not found.' }, { status: 404 })
+      }),
+      ...authHandlers(buyer).handlers,
+      ...orderHandlers().handlers,
+    )
+    const { router } = renderRoute('/orders/41')
+    expect(await screen.findByRole('heading', { name: 'Order #41' })).toBeInTheDocument()
+    await act(() => router.navigate('/orders'))
+
+    currentUser = { id: 3, name: 'Other Buyer', email: 'other@example.com', role: 'buyer' }
+    act(() => {
+      focusManager.setFocused(false)
+      focusManager.setFocused(true)
+    })
+    expect(await screen.findByText('Other Buyer')).toBeInTheDocument()
+    focusManager.setFocused(undefined)
+    await act(() => router.navigate('/orders/41'))
+
+    expect(await screen.findByRole('heading', { name: 'Order not found' })).toBeInTheDocument()
+    expect(detailRequests).toEqual(['41', '41'])
+  })
 })
