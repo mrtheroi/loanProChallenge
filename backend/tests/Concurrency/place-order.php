@@ -9,7 +9,7 @@ use Ecommerce\Ordering\Domain\PaymentCard;
 use Ecommerce\Ordering\Domain\StockLedger;
 use Illuminate\Contracts\Console\Kernel;
 
-[, $userId, $key, $sku, $quantity, $holdMs, $startAt] = $argv;
+[, $userId, $key, $sku, $quantity, $holdMs] = $argv;
 
 require __DIR__.'/../../vendor/autoload.php';
 $app = require __DIR__.'/../../bootstrap/app.php';
@@ -34,7 +34,8 @@ $app->instance(StockLedger::class, new readonly class($real, (int) $holdMs) impl
     }
 });
 
-time_sleep_until((float) $startAt);
+fwrite(STDERR, "ready\n");
+fgets(STDIN);
 
 try {
     $placed = $app->make(PlaceOrder::class)->handle(new PlaceOrderCommand(

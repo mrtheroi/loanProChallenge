@@ -10,20 +10,32 @@ use Tests\Feature\Ordering\Checkout;
 
 uses(DatabaseTruncation::class);
 
+afterEach(function (): void {
+    DB::statement('TRUNCATE order_items, orders, products, categories, users RESTART IDENTITY CASCADE');
+});
+
 /**
  * @param  list<array{user: int, key: string, sku: string, quantity: int}>  $requests
  * @return list<array<string, mixed>>
  */
 function placeConcurrently(array $requests, int $holdMs = 300): array
 {
-    $startAt = microtime(true) + 1.5;
     $env = array_merge(getenv(), ['APP_ENV' => 'testing', 'DB_DATABASE' => (string) config('database.connections.pgsql.database')]);
     $processes = [];
 
     foreach ($requests as $request) {
-        $command = [PHP_BINARY, base_path('tests/Concurrency/place-order.php'), (string) $request['user'], $request['key'], $request['sku'], (string) $request['quantity'], (string) $holdMs, sprintf('%.6f', $startAt)];
-        $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, base_path(), $env);
+        $command = [PHP_BINARY, base_path('tests/Concurrency/place-order.php'), (string) $request['user'], $request['key'], $request['sku'], (string) $request['quantity'], (string) $holdMs];
+        $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, base_path(), $env);
         $processes[] = [$process, $pipes];
+    }
+
+    foreach ($processes as [, $pipes]) {
+        expect(trim((string) fgets($pipes[2])))->toBe('ready');
+    }
+
+    foreach ($processes as [, $pipes]) {
+        fwrite($pipes[0], "go\n");
+        fclose($pipes[0]);
     }
 
     $results = [];
