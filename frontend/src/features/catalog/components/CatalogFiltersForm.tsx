@@ -57,7 +57,15 @@ export function CatalogFiltersForm({ initial, categories, onSubmit }: CatalogFil
         </select>
       </div>
       <label className="flex items-center gap-2 text-sm md:col-span-5">
-        <input type="checkbox" checked={filters.in_stock} onChange={(e) => update('in_stock', e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={filters.in_stock}
+          onChange={(e) => {
+            const next = { ...filters, in_stock: e.target.checked }
+            setFilters(next)
+            onSubmit(next)
+          }}
+        />
         In stock only
       </label>
       <Button type="submit">Search</Button>

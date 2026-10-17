@@ -28,6 +28,25 @@ describe('catalog', () => {
     expect(within(screen.getByRole('article', { name: 'Tent' })).getByText('SKU: TENT-1')).toBeInTheDocument()
   })
 
+  it('applies the in-stock filter as soon as the box is checked or unchecked', async () => {
+    const catalog = catalogHandlers([product(), product({ sku: 'TENT-1', name: 'Tent', stock: 0 })])
+    server.use(...authHandlers(null).handlers, ...catalog.handlers)
+    const { user, router } = renderRoute('/')
+    await screen.findByRole('article', { name: 'Mug' })
+
+    await user.click(screen.getByLabelText('In stock only'))
+    await waitFor(() => expect(router.state.location.search).toBe('?in_stock=1'))
+    expect(catalog.requests.at(-1)?.get('in_stock')).toBe('1')
+
+    await user.click(screen.getByLabelText('In stock only'))
+    await waitFor(() => expect(router.state.location.search).toBe(''))
+    expect(catalog.requests.at(-1)?.has('in_stock')).toBe(false)
+
+    await user.type(screen.getByLabelText('Search'), 'mug')
+    await user.click(screen.getByLabelText('In stock only'))
+    await waitFor(() => expect(router.state.location.search).toBe('?q=mug&in_stock=1'))
+  })
+
   it('keeps the search and filters in the URL and sends them to the API', async () => {
     const catalog = catalogHandlers([product(), product({ sku: 'CUP-1', name: 'Cup' })])
     server.use(...authHandlers(null).handlers, ...catalog.handlers)
