@@ -19,4 +19,9 @@ final readonly class ProductName
     {
         return $this->value;
     }
+
+    public function normalized(): string
+    {
+        return mb_strtolower((string) preg_replace('/\s+/u', ' ', $this->value));
+    }
 }
