@@ -220,3 +220,16 @@ it('replays the order of a concurrent request that claimed the same key first', 
         ->and(ProductModel::query()->where('sku', 'MUG-1')->value('stock'))->toBe(8)
         ->and(DB::table('orders')->count())->toBe(1);
 });
+
+it('throttles checkout attempts per buyer', function (): void {
+    Checkout::product('MUG-1', '1.00', 100);
+    $buyer = Checkout::buyer();
+    $declined = Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]], ['number' => '4000000000000002']);
+
+    foreach (range(1, 10) as $attempt) {
+        Checkout::place($buyer, $declined)->assertStatus(402);
+    }
+
+    Checkout::place($buyer, $declined)->assertTooManyRequests();
+    Checkout::place(Checkout::buyer(), Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]]))->assertCreated();
+});

@@ -54,8 +54,8 @@ final class ProductSearchRequest extends FormRequest
             maxPrice: $maxPrice,
             inStockOnly: $this->boolean('in_stock'),
             sort: $this->enum('sort', ProductSort::class) ?? ProductSort::NameAscending,
-            page: $this->integer('page', 1),
-            perPage: $this->integer('per_page', self::DEFAULT_PER_PAGE),
+            page: $this->filled('page') ? $this->integer('page') : 1,
+            perPage: $this->filled('per_page') ? $this->integer('per_page') : self::DEFAULT_PER_PAGE,
         );
     }
 

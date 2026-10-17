@@ -34,6 +34,6 @@ Route::prefix('admin/products')->middleware(['auth:sanctum', 'can:manage-catalog
 
 Route::prefix('orders')->middleware(['auth:sanctum', 'can:purchase'])->group(function (): void {
     Route::get('/', [OrdersController::class, 'index']);
-    Route::post('/', [OrdersController::class, 'store']);
-    Route::get('/{order}', [OrdersController::class, 'show'])->whereNumber('order');
+    Route::post('/', [OrdersController::class, 'store'])->middleware('throttle:checkout');
+    Route::get('/{order}', [OrdersController::class, 'show'])->where('order', '[1-9][0-9]{0,17}');
 });

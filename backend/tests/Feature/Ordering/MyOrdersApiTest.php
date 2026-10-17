@@ -43,3 +43,13 @@ it('only lets buyers read orders', function (): void {
     $this->getJson('/api/orders')->assertUnauthorized();
     $this->actingAs(AdminCatalog::admin())->getJson('/api/orders')->assertForbidden();
 });
+
+it('falls back to the defaults for empty pagination values', function (): void {
+    $this->actingAs(Checkout::buyer())->getJson('/api/orders?page=&per_page=')
+        ->assertOk()
+        ->assertJsonPath('meta', ['current_page' => 1, 'per_page' => 10, 'total' => 0, 'last_page' => 1]);
+});
+
+it('returns 404 for an order id beyond the integer range', function (): void {
+    $this->actingAs(Checkout::buyer())->getJson('/api/orders/99999999999999999999')->assertNotFound();
+});

@@ -22,8 +22,8 @@ final class OrdersController
 
     public function index(ListOrdersRequest $request, ListMyOrders $listMyOrders): AnonymousResourceCollection
     {
-        $page = $request->integer('page', 1);
-        $perPage = $request->integer('per_page', ListOrdersRequest::DEFAULT_PER_PAGE);
+        $page = $request->filled('page') ? $request->integer('page') : 1;
+        $perPage = $request->filled('per_page') ? $request->integer('per_page') : ListOrdersRequest::DEFAULT_PER_PAGE;
         $result = $listMyOrders->handle(self::userId($request), $page, $perPage);
 
         return OrderResource::collection($result['orders'])->additional(['meta' => [
