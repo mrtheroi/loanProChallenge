@@ -29,7 +29,7 @@ describe('login', () => {
     await user.click(screen.getByRole('button', { name: 'Log in' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin'))
-    expect(await screen.findByRole('heading', { name: 'Admin' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Products' })).toBeInTheDocument()
   })
 
   it('returns to a safe redirect target and ignores an external one', async () => {
@@ -133,14 +133,14 @@ describe('protected routes', () => {
     renderRoute('/admin')
 
     expect(await screen.findByRole('heading', { name: 'Access denied' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Admin' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Products' })).not.toBeInTheDocument()
   })
 
   it('lets an admin open the admin area', async () => {
     server.use(...authHandlers(admin).handlers)
     renderRoute('/admin')
 
-    expect(await screen.findByRole('heading', { name: 'Admin' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Products' })).toBeInTheDocument()
   })
 })
 
@@ -259,7 +259,7 @@ describe('session state', () => {
     failing = false
     await user.click(screen.getByRole('button', { name: 'Try again' }))
 
-    expect(await screen.findByRole('heading', { name: 'Admin' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Products' })).toBeInTheDocument()
   })
 
   it('keeps the user signed in when logout keeps failing with a CSRF mismatch', async () => {
