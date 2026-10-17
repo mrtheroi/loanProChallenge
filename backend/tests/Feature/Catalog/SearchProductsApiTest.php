@@ -245,3 +245,14 @@ it('serves the same search to signed in admins and buyers', function (string $ro
 
     $this->actingAs($user)->getJson('/api/products')->assertOk()->assertJsonPath('data.0.sku', 'KB-001');
 })->with(['admin', 'buyer']);
+
+it('applies every filter on top of a free text match in any column', function (): void {
+    seedProducts([
+        ['sku' => 'KB-001', 'name' => 'Keyboard', 'description' => 'Wired', 'category' => 'Office', 'stock' => 5],
+        ['sku' => 'KB-002', 'name' => 'Wired mouse', 'description' => 'Plain', 'category' => 'Office', 'stock' => 0],
+        ['sku' => 'KB-003', 'name' => 'Cable', 'description' => 'Wired', 'category' => 'Garden', 'stock' => 5],
+        ['sku' => 'WIRED-1', 'name' => 'Adapter', 'description' => 'Plain', 'category' => 'Office', 'stock' => 5, 'price' => '500'],
+    ]);
+
+    expect(searchSkus('?q=wired&category=office&in_stock=1&max_price=100'))->toBe(['KB-001']);
+});
