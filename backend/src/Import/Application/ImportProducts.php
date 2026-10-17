@@ -33,6 +33,10 @@ final readonly class ImportProducts
 
         foreach ($this->reader->read($path) as $row => $record) {
             if ($header === null) {
+                if (ProductRowParser::isBlank($record)) {
+                    continue;
+                }
+
                 $header = CsvHeader::fromRecord($record);
 
                 continue;

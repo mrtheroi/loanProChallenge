@@ -256,3 +256,9 @@ it('applies every filter on top of a free text match in any column', function ()
 
     expect(searchSkus('?q=wired&category=office&in_stock=1&max_price=100'))->toBe(['KB-001']);
 });
+
+it('falls back to the defaults for empty pagination values', function (): void {
+    $this->getJson('/api/products?page=&per_page=')
+        ->assertOk()
+        ->assertJsonPath('meta', ['current_page' => 1, 'per_page' => 12, 'total' => 0, 'last_page' => 1]);
+});

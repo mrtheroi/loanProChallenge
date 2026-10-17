@@ -193,6 +193,7 @@ it('rejects the whole file when the header is not the expected one', function (s
 })->with([
     'missing column' => ["name,sku,description,category,price,stock\nMug,TM-029,,Kitchen,1,1\n", 'The CSV header is missing the column(s): weight_kg.'],
     'empty file' => ['', 'The CSV header is missing the column(s): name, sku, description, category, price, stock, weight_kg.'],
+    'only blank lines' => ["\n\n,,\n", 'The CSV header is missing the column(s): name, sku, description, category, price, stock, weight_kg.'],
     'trailing comma' => ["name,sku,description,category,price,stock,weight_kg,\nMug,TM-029,,Kitchen,1,1,,\n", 'The CSV header has unnamed column(s) at position(s): 8.'],
     'invalid utf-8 column' => ["name,sku,description,category,price,stock,weight_kg,caf\xE9\n", 'The CSV header has unknown column(s): caf?.'],
 ]);
@@ -391,4 +392,11 @@ it('accepts exactly 5000 data rows and does not count blank rows toward the cap'
     importCsv(IMPORT_HEADER.",,,,,,\n".$rows."\n")
         ->assertOk()
         ->assertJsonPath('summary', ['created' => 5000, 'updated' => 0, 'unchanged' => 0, 'failed' => 0, 'blank_rows' => 2]);
+});
+
+it('skips blank lines before the header', function (): void {
+    importCsv("\n,,\n".IMPORT_HEADER."Mug,TM-029,,Kitchen,1.00,1,\n")
+        ->assertOk()
+        ->assertJsonPath('summary', ['created' => 1, 'updated' => 0, 'unchanged' => 0, 'failed' => 0, 'blank_rows' => 0])
+        ->assertJsonPath('rows.0.row', 4);
 });
