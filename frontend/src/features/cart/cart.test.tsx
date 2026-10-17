@@ -161,4 +161,22 @@ describe('cart', () => {
 
     expect(await screen.findByRole('link', { name: 'Checkout' })).toBeInTheDocument()
   })
+  it('explains when a quantity above the stock is reduced to what is available', async () => {
+    useCartStore.getState().add({ sku: 'BM-1', name: 'Baby Monitor', price: '59.99', stock: 30 })
+    server.use(...authHandlers(buyer).handlers)
+    const { user } = renderRoute('/cart')
+
+    const line = await screen.findByRole('listitem', { name: 'Baby Monitor' })
+    await user.clear(within(line).getByLabelText('Quantity'))
+    await user.type(within(line).getByLabelText('Quantity'), '50')
+    await user.tab()
+
+    expect(within(line).getByLabelText('Quantity')).toHaveValue(30)
+    expect(within(line).getByRole('alert')).toHaveTextContent('Only 30 in stock. The quantity was set to 30.')
+
+    await user.clear(within(line).getByLabelText('Quantity'))
+    await user.type(within(line).getByLabelText('Quantity'), '10')
+    await user.tab()
+    expect(within(line).queryByRole('alert')).not.toBeInTheDocument()
+  })
 })

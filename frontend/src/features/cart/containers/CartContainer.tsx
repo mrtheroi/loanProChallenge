@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { useCurrentUser } from '@/features/auth/hooks/useAuth'
 import { formatCents, toCents } from '@/shared/lib/money'
@@ -14,6 +15,12 @@ export function CartContainer() {
   const { data: user, isPending: checkingSession, isError, refetch } = useCurrentUser()
   const sessionUnknown = isError && user === undefined
   const lines = Object.values(items)
+  const [cappedAt, setCappedAt] = useState<Record<string, number>>({})
+
+  const changeQuantity = (sku: string, requested: number) => {
+    const stored = setQuantity(sku, requested)
+    setCappedAt(({ [sku]: _previous, ...rest }) => (requested > stored ? { ...rest, [sku]: stored } : rest))
+  }
 
   if (lines.length === 0) {
     return (
@@ -43,13 +50,18 @@ export function CartContainer() {
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 text-sm">
                 Quantity
-                <QuantityInput value={line.quantity} max={maxQuantity(line.stock)} onCommit={(quantity) => void setQuantity(line.sku, quantity)} />
+                <QuantityInput value={line.quantity} max={maxQuantity(line.stock)} onCommit={(quantity) => changeQuantity(line.sku, quantity)} />
               </label>
               <span className="w-24 text-right font-medium">{formatCents(lineTotalCents(line))}</span>
               <Button variant="ghost" onClick={() => remove(line.sku)}>
                 Remove
               </Button>
             </div>
+            {cappedAt[line.sku] !== undefined && (
+              <p role="alert" className="w-full text-sm text-destructive">
+                Only {line.stock} in stock. The quantity was set to {cappedAt[line.sku]}.
+              </p>
+            )}
           </li>
         ))}
       </ul>
