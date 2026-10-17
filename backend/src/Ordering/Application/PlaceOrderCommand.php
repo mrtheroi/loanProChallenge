@@ -16,16 +16,20 @@ final readonly class PlaceOrderCommand
         public PaymentCard $card,
         public int $cardExpMonth,
         public int $cardExpYear,
+        public string $paymentFingerprint,
     ) {}
 
     public function requestHash(): string
     {
-        $quantities = $this->quantitiesBySku;
-        ksort($quantities);
+        $lines = [];
+        foreach ($this->quantitiesBySku as $sku => $quantity) {
+            $lines[] = [(string) $sku, $quantity];
+        }
+        usort($lines, fn (array $a, array $b): int => strcmp($a[0], $b[0]));
 
         return hash('sha256', (string) json_encode([
-            'items' => $quantities,
-            'card' => [$this->card->brand(), $this->card->last4(), $this->cardExpMonth, $this->cardExpYear],
+            'items' => $lines,
+            'card' => [$this->paymentFingerprint, $this->cardExpMonth, $this->cardExpYear],
         ]));
     }
 }

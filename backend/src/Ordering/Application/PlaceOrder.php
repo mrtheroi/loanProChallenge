@@ -7,6 +7,7 @@ namespace Ecommerce\Ordering\Application;
 use Ecommerce\Ordering\Domain\DuplicateIdempotencyKey;
 use Ecommerce\Ordering\Domain\IdempotencyKeyReused;
 use Ecommerce\Ordering\Domain\InsufficientStock;
+use Ecommerce\Ordering\Domain\InvalidOrderInput;
 use Ecommerce\Ordering\Domain\Order;
 use Ecommerce\Ordering\Domain\OrderLine;
 use Ecommerce\Ordering\Domain\OrderRepository;
@@ -70,7 +71,7 @@ final readonly class PlaceOrder
             throw InsufficientStock::for($unavailable);
         }
 
-        $total = array_sum(array_map(fn (OrderLine $line): int => $line->totalCents(), $lines));
+        $total = self::total($lines);
         $charge = $this->payments->charge($command->card, $total);
 
         $this->stock->decrement(array_combine(
@@ -88,5 +89,21 @@ final readonly class PlaceOrder
         }
 
         return new PlacedOrder($order, true);
+    }
+
+    /** @param  list<OrderLine>  $lines */
+    private static function total(array $lines): int
+    {
+        $total = 0;
+
+        foreach ($lines as $line) {
+            if ($line->unitPriceCents > intdiv(PHP_INT_MAX - $total, $line->quantity)) {
+                throw InvalidOrderInput::because('items', 'the order total is too large');
+            }
+
+            $total += $line->totalCents();
+        }
+
+        return $total;
     }
 }

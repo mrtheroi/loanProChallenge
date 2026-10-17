@@ -9,7 +9,7 @@ use Stringable;
 
 final readonly class PaymentCard implements Stringable
 {
-    private function __construct(private string $number) {}
+    private function __construct(private string $number, private string $cvc) {}
 
     public static function fromInput(string $number, int $expMonth, int $expYear, string $cvc, DateTimeImmutable $today): self
     {
@@ -31,7 +31,12 @@ final readonly class PaymentCard implements Stringable
             throw InvalidOrderInput::because('card.cvc', 'must contain 3 or 4 digits');
         }
 
-        return new self($digits);
+        return new self($digits, $cvc);
+    }
+
+    public function fingerprint(string $secret): string
+    {
+        return hash_hmac('sha256', $this->number.'|'.$this->cvc, $secret);
     }
 
     public function number(): string

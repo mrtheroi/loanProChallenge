@@ -261,3 +261,47 @@ it('handles all-digit skus as text when buying and when reporting shortages', fu
             ['sku' => '67890', 'requested' => 1, 'available' => 0],
         ]);
 });
+
+it('buys a product priced above the 32-bit range', function (): void {
+    Checkout::product('BIG-1', '21474836.48', 1);
+
+    Checkout::place(Checkout::buyer(), Checkout::payload([['sku' => 'BIG-1', 'quantity' => 1]]))
+        ->assertCreated()
+        ->assertJsonPath('data.items.0.unit_price', '21474836.48')
+        ->assertJsonPath('data.total', '21474836.48');
+});
+
+it('rejects an order whose total does not fit before charging', function (): void {
+    Checkout::product('HUGE-1', '92233720368547758.07', 5);
+    $before = checkoutSnapshot();
+
+    Checkout::place(Checkout::buyer(), Checkout::payload([['sku' => 'HUGE-1', 'quantity' => 2]]))
+        ->assertUnprocessable()
+        ->assertJsonPath('errors.items', ['the order total is too large']);
+
+    expect(checkoutSnapshot())->toBe($before);
+});
+
+it('treats the same lines in another order as the same request for numeric skus', function (): void {
+    Checkout::product('1', '1.00', 10);
+    Checkout::product('01', '1.00', 10);
+    $buyer = Checkout::buyer();
+    $key = '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10';
+
+    Checkout::place($buyer, Checkout::payload([['sku' => '1', 'quantity' => 1], ['sku' => '01', 'quantity' => 2]]), $key)->assertCreated();
+    Checkout::place($buyer, Checkout::payload([['sku' => '01', 'quantity' => 2], ['sku' => '1', 'quantity' => 1]]), $key)->assertOk();
+});
+
+it('rejects a reused key with another card that shares brand, last four and expiry', function (array $card): void {
+    Checkout::product('MUG-1', '1.00', 10);
+    $buyer = Checkout::buyer();
+    $key = '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10';
+    Checkout::place($buyer, Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]]), $key)->assertCreated();
+
+    Checkout::place($buyer, Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]], $card), $key)
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['idempotency_key']);
+})->with([
+    'other number' => [['number' => '4000056655664242']],
+    'other cvc' => [['cvc' => '999']],
+]);

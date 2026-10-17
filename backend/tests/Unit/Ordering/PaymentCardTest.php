@@ -50,3 +50,13 @@ it('never exposes the cvc or the full number when cast to string or debugged', f
         ->and(print_r($card, true))->not->toContain('4242424242424242')
         ->and(print_r($card, true))->not->toContain('123');
 });
+
+it('fingerprints the full number and cvc without exposing them', function (): void {
+    $fingerprint = card()->fingerprint('secret');
+
+    expect($fingerprint)->toMatch('/^[0-9a-f]{64}$/')
+        ->and($fingerprint)->toBe(card('4242424242424242')->fingerprint('secret'))
+        ->and($fingerprint)->not->toBe(card('4000056655664242')->fingerprint('secret'))
+        ->and($fingerprint)->not->toBe(card(cvc: '999')->fingerprint('secret'))
+        ->and($fingerprint)->not->toBe(card()->fingerprint('other secret'));
+});

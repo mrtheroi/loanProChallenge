@@ -42,9 +42,10 @@ try {
         (int) $userId,
         $key,
         [$sku => (int) $quantity],
-        PaymentCard::fromInput('4242424242424242', 12, 2030, '123', new DateTimeImmutable('2026-10-16')),
+        $card = PaymentCard::fromInput('4242424242424242', 12, 2030, '123', new DateTimeImmutable('2026-10-16')),
         12,
         2030,
+        $card->fingerprint('concurrency-test'),
     ));
     echo json_encode(['outcome' => $placed->replayed ? 'replayed' : 'created', 'order' => $placed->order->id]);
 } catch (InsufficientStock) {
