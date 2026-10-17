@@ -1,4 +1,6 @@
-import { screen, waitFor } from '@testing-library/react'
+import { focusManager } from '@tanstack/react-query'
+import { act, screen, waitFor } from '@testing-library/react'
+import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { admin, authHandlers, buyer } from '@/test/auth-handlers'
 import { renderRoute } from '@/test/render'
@@ -166,5 +168,96 @@ describe('header', () => {
     renderRoute('/')
 
     expect(await screen.findByRole('link', { name: 'Admin' })).toHaveAttribute('href', '/admin')
+  })
+})
+
+describe('session state', () => {
+  it('keeps the signed-in user when the initial guest check answers after the login', async () => {
+    let releaseMe: () => void = () => undefined
+    const meReleased = new Promise<void>((resolve) => {
+      releaseMe = resolve
+    })
+    const auth = authHandlers(null)
+    server.use(
+      http.get('/api/auth/me', async () => {
+        await meReleased
+        return HttpResponse.json({ message: 'Unauthenticated.' }, { status: 401 })
+      }),
+      ...auth.handlers,
+    )
+    const { user } = renderRoute('/login')
+
+    await user.type(await screen.findByLabelText('Email'), 'buyer@example.com')
+    await user.type(screen.getByLabelText('Password'), 'password')
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+    await waitFor(() => expect(auth.calls.login).toBe(1))
+    releaseMe()
+
+    expect(await screen.findByText('Demo Buyer')).toBeInTheDocument()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(screen.getByText('Demo Buyer')).toBeInTheDocument()
+  })
+
+  it('signs the user out locally when any request reports an expired session', async () => {
+    server.use(http.post('/api/auth/logout', () => HttpResponse.json({ message: 'Unauthenticated.' }, { status: 401 })), ...authHandlers(buyer).handlers)
+    const { user } = renderRoute('/')
+
+    await user.click(await screen.findByRole('button', { name: 'Log out' }))
+
+    expect(await screen.findByRole('link', { name: 'Log in' })).toBeInTheDocument()
+  })
+
+  it('tells the user when logging out fails for another reason', async () => {
+    server.use(http.post('/api/auth/logout', () => HttpResponse.json({ message: 'Server Error' }, { status: 500 })), ...authHandlers(buyer).handlers)
+    const { user } = renderRoute('/')
+
+    await user.click(await screen.findByRole('button', { name: 'Log out' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('We could not log you out. Please try again.')
+    expect(screen.getByText('Demo Buyer')).toBeInTheDocument()
+  })
+
+  it('rechecks the session when the window regains focus', async () => {
+    const auth = authHandlers(buyer)
+    server.use(...auth.handlers)
+    renderRoute('/')
+    expect(await screen.findByText('Demo Buyer')).toBeInTheDocument()
+
+    server.use(http.get('/api/auth/me', () => HttpResponse.json({ message: 'Unauthenticated.' }, { status: 401 })))
+    act(() => {
+      focusManager.setFocused(false)
+      focusManager.setFocused(true)
+    })
+
+    expect(await screen.findByRole('link', { name: 'Log in' })).toBeInTheDocument()
+    focusManager.setFocused(undefined)
+  })
+
+  it('shows the generic message when the login fails unexpectedly', async () => {
+    server.use(http.post('/api/auth/login', () => new HttpResponse('<html>oops</html>', { status: 500 })), ...authHandlers(null).handlers)
+    const { user } = renderRoute('/login')
+
+    await user.type(await screen.findByLabelText('Email'), 'buyer@example.com')
+    await user.type(screen.getByLabelText('Password'), 'password')
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+
+    expect(await screen.findByText('Something went wrong. Please try again.')).toBeInTheDocument()
+  })
+
+  it('offers a retry instead of a login redirect when the session check fails', async () => {
+    let failing = true
+    server.use(
+      http.get('/api/auth/me', () => (failing ? HttpResponse.json({ message: 'Server Error' }, { status: 500 }) : HttpResponse.json({ data: admin }))),
+      ...authHandlers(admin).handlers,
+    )
+    const { user, router } = renderRoute('/admin')
+
+    expect(await screen.findByText('We could not check your session.')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/admin')
+
+    failing = false
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByRole('heading', { name: 'Admin' })).toBeInTheDocument()
   })
 })

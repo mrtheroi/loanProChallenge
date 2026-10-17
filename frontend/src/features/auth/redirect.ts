@@ -1,9 +1,18 @@
 import type { User } from './api/authApi'
 
-export function safeRedirect(target: string | null): string | null {
-  if (target === null || !target.startsWith('/') || target.startsWith('//') || target.startsWith('/\\')) return null
+const ORIGIN = 'http://same-site.invalid'
 
-  return target
+export function safeRedirect(target: string | null): string | null {
+  if (target === null || !target.startsWith('/') || hasUnsafeCharacter(target)) return null
+
+  const url = new URL(target, ORIGIN)
+  if (url.origin !== ORIGIN) return null
+
+  return url.pathname + url.search + url.hash
+}
+
+function hasUnsafeCharacter(value: string): boolean {
+  return [...value].some((character) => character === '\\' || character.charCodeAt(0) < 0x20 || character.charCodeAt(0) === 0x7f)
 }
 
 export function homeFor(user: User): string {
