@@ -1,7 +1,6 @@
 import type { CheckoutPayload } from '@/features/orders/api/ordersApi'
 
 const ATTEMPT_PREFIX = 'loanpro-checkout-attempt:'
-const LEGACY_KEYS = ['loanpro-checkout-attempt', 'loanpro-checkout-attempts']
 
 const memoryAttempts = new Map<string, string>()
 
@@ -27,62 +26,63 @@ export function paymentFingerprint(payload: CheckoutPayload): string {
   return JSON.stringify({ items, card: [cardBrand(digits), digits.slice(-4), payload.card.exp_month, payload.card.exp_year] })
 }
 
-async function hash(fingerprint: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(fingerprint))
-
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+async function sha256(text: string): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))
 }
 
-function readAttempt(id: string): string | undefined {
+function hex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+async function slotFor(userId: number, fingerprint: string): Promise<string> {
+  return `${userId}:${hex(await sha256(fingerprint))}`
+}
+
+function readAttempt(slot: string): string | undefined {
   try {
-    return localStorage.getItem(ATTEMPT_PREFIX + id) ?? memoryAttempts.get(id)
+    return localStorage.getItem(ATTEMPT_PREFIX + slot) ?? memoryAttempts.get(slot)
   } catch {
-    return memoryAttempts.get(id)
+    return memoryAttempts.get(slot)
   }
+}
+
+/** Runs the callback while holding a lock shared by every tab of this site, when the browser supports it. */
+async function withCrossTabLock<T>(name: string, callback: () => T): Promise<T> {
+  return 'locks' in navigator ? navigator.locks.request(name, async () => callback()) : callback()
 }
 
 /**
- * Returns the Idempotency-Key for a payment. Each unresolved payment keeps its
- * own key under its own storage entry (named by a hash, never the card
- * details), so tabs never overwrite each other's attempts, and the key is kept
- * in memory when storage fails. A retry of the same payment is therefore
- * replayed by the backend instead of charged again.
+ * Returns the Idempotency-Key for a buyer's payment. A fresh random key starts
+ * each attempt, so a repeat purchase from any device is a new order. While the
+ * outcome is unknown the key is kept per buyer and payment (under a hash, never
+ * card details) and is created inside a cross-tab lock, so tabs paying the same
+ * thing converge on one key and a retry is replayed instead of charged again.
  */
-export async function idempotencyKeyFor(fingerprint: string): Promise<string> {
-  const id = await hash(fingerprint)
-  const existing = readAttempt(id)
-  if (existing !== undefined) return existing
+export async function idempotencyKeyFor(userId: number, fingerprint: string): Promise<string> {
+  const slot = await slotFor(userId, fingerprint)
 
-  const key = crypto.randomUUID()
-  memoryAttempts.set(id, key)
-  try {
-    localStorage.setItem(ATTEMPT_PREFIX + id, key)
-  } catch {
-    // The in-memory attempt still covers retries in this page.
-  }
+  return withCrossTabLock(`loanpro-checkout:${slot}`, () => {
+    const existing = readAttempt(slot)
+    if (existing !== undefined) return existing
 
-  return key
-}
-
-/** Forgets one payment's attempt once its outcome is known. */
-export async function settlePayment(fingerprint: string): Promise<void> {
-  const id = await hash(fingerprint)
-  memoryAttempts.delete(id)
-  try {
-    localStorage.removeItem(ATTEMPT_PREFIX + id)
-  } catch {
-    // Nothing else to forget.
-  }
-}
-
-/** Forgets every pending attempt, for example on logout. */
-export function forgetAllPayments(): void {
-  memoryAttempts.clear()
-  try {
-    const keys = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
-    for (const key of keys) {
-      if (key !== null && (key.startsWith(ATTEMPT_PREFIX) || LEGACY_KEYS.includes(key))) localStorage.removeItem(key)
+    const key = crypto.randomUUID()
+    memoryAttempts.set(slot, key)
+    try {
+      localStorage.setItem(ATTEMPT_PREFIX + slot, key)
+    } catch {
+      // The in-memory attempt still covers retries in this page.
     }
+
+    return key
+  })
+}
+
+/** Ends this payment's attempt once its outcome is known. */
+export async function settlePayment(userId: number, fingerprint: string): Promise<void> {
+  const slot = await slotFor(userId, fingerprint)
+  memoryAttempts.delete(slot)
+  try {
+    localStorage.removeItem(ATTEMPT_PREFIX + slot)
   } catch {
     // Nothing else to forget.
   }

@@ -1,4 +1,5 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { focusManager } from '@tanstack/react-query'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { authHandlers, buyer } from '@/test/auth-handlers'
@@ -94,5 +95,43 @@ describe('my orders', () => {
     await user.click(screen.getByRole('button', { name: 'Try again' }))
 
     expect(await screen.findByRole('heading', { name: 'Order #41' })).toBeInTheDocument()
+  })
+
+  it('does not show a cached order to the next buyer after the session ends', async () => {
+    const detailRequests: string[] = []
+    let currentUser: typeof buyer | null = buyer
+    server.use(
+      http.get('/api/auth/me', () => (currentUser ? HttpResponse.json({ data: currentUser }) : HttpResponse.json({ message: 'Unauthenticated.' }, { status: 401 }))),
+      http.get('/api/orders/:id', ({ params }) => {
+        detailRequests.push(String(params.id))
+        return currentUser?.id === buyer.id ? HttpResponse.json({ data: order({ id: 41 }) }) : HttpResponse.json({ message: 'Order not found.' }, { status: 404 })
+      }),
+      http.post('/api/auth/logout', () => {
+        currentUser = null
+        return new HttpResponse(null, { status: 204 })
+      }),
+      http.post('/api/auth/login', () => {
+        currentUser = { id: 3, name: 'Other Buyer', email: 'other@example.com', role: 'buyer' }
+        return HttpResponse.json({ data: currentUser })
+      }),
+      ...authHandlers(buyer).handlers,
+    )
+    const { user, router } = renderRoute('/orders/41')
+    expect(await screen.findByRole('heading', { name: 'Order #41' })).toBeInTheDocument()
+
+    currentUser = null
+    act(() => {
+      focusManager.setFocused(false)
+      focusManager.setFocused(true)
+    })
+    await screen.findByRole('link', { name: 'Log in' })
+    focusManager.setFocused(undefined)
+    await act(() => router.navigate('/login?redirect=%2Forders%2F41'))
+    await user.type(await screen.findByLabelText('Email'), 'other@example.com')
+    await user.type(screen.getByLabelText('Password'), 'password')
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+
+    expect(await screen.findByRole('heading', { name: 'Order not found' })).toBeInTheDocument()
+    expect(detailRequests).toEqual(['41', '41'])
   })
 })

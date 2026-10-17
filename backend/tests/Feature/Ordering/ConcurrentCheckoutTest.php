@@ -67,7 +67,8 @@ function placeConcurrently(array $requests, int $holdMs = 300): array
     $processes = [];
 
     foreach ($requests as $request) {
-        $command = [PHP_BINARY, base_path('tests/Concurrency/place-order.php'), (string) $request['user'], $request['key'], $request['sku'], (string) $request['quantity'], (string) $holdMs];
+        $priceCents = (string) ProductModel::query()->where('sku', $request['sku'])->value('price_cents');
+        $command = [PHP_BINARY, base_path('tests/Concurrency/place-order.php'), (string) $request['user'], $request['key'], $request['sku'], (string) $request['quantity'], $priceCents, (string) $holdMs];
         $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, base_path(), $env);
         $processes[] = [$process, $pipes];
     }

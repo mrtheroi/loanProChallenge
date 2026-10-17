@@ -1,10 +1,12 @@
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { removePrivateQueries } from '@/shared/api/privateQueries'
 import { fetchCurrentUser, login, logout, register, type User } from '../api/authApi'
 
 export const currentUserKey = ['auth', 'me'] as const
 
 async function signIn(queryClient: QueryClient, user: User): Promise<void> {
   await queryClient.cancelQueries({ queryKey: currentUserKey })
+  removePrivateQueries(queryClient)
   queryClient.setQueryData(currentUserKey, user)
 }
 

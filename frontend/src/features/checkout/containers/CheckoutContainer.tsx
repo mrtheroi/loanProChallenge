@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { useCurrentUser } from '@/features/auth/hooks/useAuth'
 import { useCartStore } from '@/features/cart/cartStore'
 import { cartSubtotalCents, lineTotalCents } from '@/features/cart/totals'
 import { orderQueryKey, placeOrder, type CheckoutPayload, type PriceChange, type Unavailable } from '@/features/orders/api/ordersApi'
@@ -10,6 +11,8 @@ import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { CardForm, type Card } from '../components/CardForm'
 import { idempotencyKeyFor, paymentFingerprint, settlePayment, settlesPayment } from '../idempotency'
+
+type Attempt = { userId: number; fingerprint: string; payload: CheckoutPayload }
 
 type Problem = { message: string; unavailable: Unavailable[]; priceChanges: PriceChange[] }
 
@@ -34,28 +37,34 @@ export function CheckoutContainer() {
   const reprice = useCartStore((state) => state.reprice)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { data: user } = useCurrentUser()
   const [problem, setProblem] = useState<Problem | null>(null)
+  const [placedOrderId, setPlacedOrderId] = useState<number | null>(null)
 
   const checkout = useMutation({
-    mutationFn: async ({ fingerprint, payload }: { fingerprint: string; payload: CheckoutPayload }) =>
-      placeOrder(await idempotencyKeyFor(fingerprint), payload),
-    onSuccess: async (order, { fingerprint }) => {
+    mutationFn: async ({ userId, fingerprint, payload }: Attempt) => placeOrder(await idempotencyKeyFor(userId, fingerprint), payload),
+    onSuccess: async (order, { userId, fingerprint }) => {
+      setPlacedOrderId(order.id)
       queryClient.setQueryData(orderQueryKey(order.id), order)
       await navigate(`/orders/${order.id}`, { state: { placed: true } })
       clear()
-      await settlePayment(fingerprint)
+      await settlePayment(userId, fingerprint)
     },
-    onError: async (error, { fingerprint }) => {
+    onError: async (error, { userId, fingerprint }) => {
       const found = problemFrom(error)
       found.priceChanges.forEach((change) => reprice(change.sku, change.current))
       setProblem(found)
-      if (error instanceof ApiError && settlesPayment(error.status)) await settlePayment(fingerprint)
+      if (error instanceof ApiError && settlesPayment(error.status)) await settlePayment(userId, fingerprint)
     },
   })
 
   const lines = Object.values(items)
 
-  if (lines.length === 0 && !checkout.isSuccess) {
+  if (placedOrderId !== null) {
+    return <p className="text-muted-foreground">Order #{placedOrderId} placed. Opening your receipt…</p>
+  }
+
+  if (lines.length === 0) {
     return (
       <section className="flex flex-col items-start gap-4">
         <h1 className="font-heading text-2xl font-semibold">Checkout</h1>
@@ -71,8 +80,9 @@ export function CheckoutContainer() {
 
   const pay = (card: Card) => {
     const payload: CheckoutPayload = { items: lines.map((line) => ({ sku: line.sku, quantity: line.quantity, unit_price: line.price })), card }
+    if (user === null || user === undefined) return
     setProblem(null)
-    checkout.mutate({ fingerprint: paymentFingerprint(payload), payload })
+    checkout.mutate({ userId: user.id, fingerprint: paymentFingerprint(payload), payload })
   }
 
   return (
@@ -90,7 +100,7 @@ export function CheckoutContainer() {
           ))}
         </ul>
         <p className="font-semibold">Total: {total}</p>
-        <p className="text-xs text-muted-foreground">The final price is taken from the store at the moment you pay.</p>
+        <p className="text-xs text-muted-foreground">If a price changed since you added the item, you will be asked to review it before anything is charged.</p>
       </div>
       <div className="flex flex-col gap-4">
         {problem && (

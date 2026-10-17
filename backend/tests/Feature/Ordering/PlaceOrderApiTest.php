@@ -361,3 +361,15 @@ it('treats the expected unit price as part of the request identity', function ()
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['idempotency_key']);
 });
+
+it('still replays a paid order after the product price changes', function (): void {
+    Checkout::product('MUG-1', '16.99', 10);
+    $buyer = Checkout::buyer();
+    $key = '0b9f8a52-6c1e-4f43-9a3e-2f1d7c5b8e10';
+    $payload = Checkout::payload([['sku' => 'MUG-1', 'quantity' => 1]]);
+    $first = Checkout::place($buyer, $payload, $key)->assertCreated()->json();
+
+    ProductModel::query()->where('sku', 'MUG-1')->update(['price_cents' => 2500]);
+
+    expect(Checkout::place($buyer, $payload, $key)->assertOk()->json())->toBe($first);
+});

@@ -79,9 +79,9 @@ final readonly class PlaceOrder
 
         $changes = [];
         foreach ($lines as $line) {
-            $expected = $command->expectedPriceCentsBySku[$line->sku] ?? null;
+            $expected = $command->expectedPriceCentsBySku[$line->sku];
             if ($expected !== $line->unitPriceCents) {
-                $changes[] = new PriceChange($line->sku, $expected ?? 0, $line->unitPriceCents);
+                $changes[] = new PriceChange($line->sku, $expected, $line->unitPriceCents);
             }
         }
 

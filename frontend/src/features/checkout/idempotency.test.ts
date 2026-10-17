@@ -1,5 +1,7 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { idempotencyKeyFor, paymentFingerprint, settlePayment } from './idempotency'
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 const payload = (number: string, exp_month = 12) => ({
   items: [{ sku: 'MUG-1', quantity: 2, unit_price: '16.99' }],
@@ -17,54 +19,56 @@ describe('payment fingerprint', () => {
   })
 })
 
-describe('pending attempts', () => {
-  afterEach(() => {
+describe('idempotency keys', () => {
+  it('gives a repeat purchase on another device a fresh key instead of the old order key', async () => {
+    const first = await idempotencyKeyFor(7, 'payment')
+    expect(first).toMatch(UUID)
     localStorage.clear()
-    vi.restoreAllMocks()
-  })
-
-  it('keeps one attempt per payment so another tab cannot overwrite it', async () => {
-    const first = await idempotencyKeyFor('payment-a')
-    const second = await idempotencyKeyFor('payment-b')
-
-    expect(await idempotencyKeyFor('payment-a')).toBe(first)
-    expect(await idempotencyKeyFor('payment-b')).toBe(second)
-
-    await settlePayment('payment-a')
-    expect(await idempotencyKeyFor('payment-a')).not.toBe(first)
-    expect(await idempotencyKeyFor('payment-b')).toBe(second)
-  })
-
-  it('stores only hashed fingerprints and is read by a fresh tab', async () => {
-    const key = await idempotencyKeyFor('MUG-1|4242|12/2030')
-
-    expect(Object.keys(localStorage).join(' ')).not.toContain('4242')
-    expect(Object.keys(localStorage).every((key) => key.startsWith('loanpro-checkout-attempt:'))).toBe(true)
     vi.resetModules()
-    const freshTab = await import('./idempotency')
-    expect(await freshTab.idempotencyKeyFor('MUG-1|4242|12/2030')).toBe(key)
+    const otherDevice = await import('./idempotency')
+
+    expect(await otherDevice.idempotencyKeyFor(7, 'payment')).not.toBe(first)
   })
 
-  it('keeps the key in memory when storage cannot be written', async () => {
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+  it('creates a key inside a cross-tab lock named after the buyer and payment', async () => {
+    const request = vi.fn((_name: string, callback: () => Promise<string>) => callback())
+    Object.defineProperty(navigator, 'locks', { value: { request }, configurable: true })
+
+    const key = await idempotencyKeyFor(7, 'payment-locked')
+
+    expect(request).toHaveBeenCalledWith(expect.stringMatching(/^loanpro-checkout:7:[0-9a-f]{64}$/), expect.any(Function))
+    expect(await idempotencyKeyFor(7, 'payment-locked')).toBe(key)
+    Reflect.deleteProperty(navigator, 'locks')
+  })
+
+  it('scopes keys to the buyer and keeps them until the outcome is known', async () => {
+    const first = await idempotencyKeyFor(7, 'payment')
+
+    expect(await idempotencyKeyFor(8, 'payment')).not.toBe(first)
+    expect(await idempotencyKeyFor(7, 'other payment')).not.toBe(first)
+    expect(await idempotencyKeyFor(7, 'payment')).toBe(first)
+
+    await settlePayment(7, 'payment')
+    const next = await idempotencyKeyFor(7, 'payment')
+    expect(next).not.toBe(first)
+    expect(await idempotencyKeyFor(7, 'payment')).toBe(next)
+  })
+
+  it('never stores card details', async () => {
+    await idempotencyKeyFor(7, 'MUG-1|4242|12/2030')
+
+    expect(JSON.stringify({ ...localStorage })).not.toContain('4242')
+  })
+
+  it('still settles within the page when storage cannot be written', async () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('QuotaExceededError')
     })
+    const first = await idempotencyKeyFor(9, 'fp-memory')
 
-    const key = await idempotencyKeyFor('fp-memory')
+    await settlePayment(9, 'fp-memory')
 
-    expect(await idempotencyKeyFor('fp-memory')).toBe(key)
-  })
-})
-
-describe('forgetting attempts', () => {
-  it('removes every attempt, including entries written by older versions', async () => {
-    const { forgetAllPayments } = await import('./idempotency')
-    await idempotencyKeyFor('payment-a')
-    localStorage.setItem('loanpro-checkout-attempt', JSON.stringify({ fingerprint: 'old', key: 'k' }))
-    localStorage.setItem('loanpro-cart', '{}')
-
-    forgetAllPayments()
-
-    expect(Object.keys(localStorage)).toEqual(['loanpro-cart'])
+    expect(await idempotencyKeyFor(9, 'fp-memory')).not.toBe(first)
+    setItem.mockRestore()
   })
 })

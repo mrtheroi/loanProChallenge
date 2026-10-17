@@ -292,9 +292,9 @@ describe('session state', () => {
     expect(await screen.findByText('Demo Buyer')).toBeInTheDocument()
   })
 
-  it('clears the cart and any pending payment when the user logs out', async () => {
+  it('clears the cart but keeps pending payment attempts when the user logs out', async () => {
     useCartStore.getState().add({ sku: 'MUG-1', name: 'Mug', price: '16.99', stock: 5 })
-    localStorage.setItem('loanpro-checkout-attempt:abc', 'k')
+    localStorage.setItem('loanpro-checkout-attempt:2:abc', 'k')
     server.use(...authHandlers(buyer).handlers)
     const { user } = renderRoute('/')
 
@@ -302,6 +302,6 @@ describe('session state', () => {
     await screen.findByRole('link', { name: 'Log in' })
 
     expect(useCartStore.getState().items).toEqual({})
-    expect(localStorage.getItem('loanpro-checkout-attempt:abc')).toBeNull()
+    expect(localStorage.getItem('loanpro-checkout-attempt:2:abc')).toBe('k')
   })
 })

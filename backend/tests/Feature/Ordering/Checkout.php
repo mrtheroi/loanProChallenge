@@ -6,6 +6,7 @@ namespace Tests\Feature\Ordering;
 
 use App\Models\User;
 use Ecommerce\Catalog\Application\ProductData;
+use Ecommerce\Catalog\Domain\Money;
 use Ecommerce\Catalog\Domain\ProductRepository;
 use Ecommerce\Catalog\Infrastructure\ProductModel;
 use Ecommerce\Identity\Role;
@@ -55,6 +56,7 @@ final class Checkout
 
         $cents = ProductModel::query()->where('sku', strtoupper(trim($item['sku'])))->value('price_cents');
 
-        return $item + ['unit_price' => $cents === null ? '1.00' : sprintf('%d.%02d', intdiv((int) $cents, 100), (int) $cents % 100)];
+        // An unknown SKU gets any well-formed price: the request must reach the stock check, which rejects it.
+        return $item + ['unit_price' => Money::fromCents($cents === null ? 0 : (int) $cents)->toDecimalString()];
     }
 }

@@ -42,6 +42,7 @@ describe('checkout', () => {
     const { user, router } = renderRoute('/checkout')
 
     expect(await screen.findByText('Total: $39.48')).toBeInTheDocument()
+    expect(screen.getByText('If a price changed since you added the item, you will be asked to review it before anything is charged.')).toBeInTheDocument()
     await payWith(user)
 
     const sawEmptyCart = { value: false }

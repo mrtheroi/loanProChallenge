@@ -1,17 +1,15 @@
 import { Link } from 'react-router'
 import { isExpiredSession } from '@/app/queryClient'
 import { useCartStore } from '@/features/cart/cartStore'
-import { forgetAllPayments } from '@/features/checkout/idempotency'
 import { Button } from '@/shared/ui/button'
 import { useCurrentUser, useLogout } from '../hooks/useAuth'
 
-function forgetLocalData() {
+function clearCart() {
   useCartStore.getState().clear()
-  forgetAllPayments()
 }
 
-function forgetLocalDataIfSignedOut(error: unknown) {
-  if (isExpiredSession(error)) forgetLocalData()
+function clearCartIfSignedOut(error: unknown) {
+  if (isExpiredSession(error)) clearCart()
 }
 
 export function AuthMenu() {
@@ -54,7 +52,7 @@ export function AuthMenu() {
         </Button>
       )}
       <span className="text-sm">{user.name}</span>
-      <Button variant="outline" disabled={logout.isPending} onClick={() => logout.mutate(undefined, { onSuccess: forgetLocalData, onError: forgetLocalDataIfSignedOut })}>
+      <Button variant="outline" disabled={logout.isPending} onClick={() => logout.mutate(undefined, { onSuccess: clearCart, onError: clearCartIfSignedOut })}>
         Log out
       </Button>
       {logout.isError && !isExpiredSession(logout.error) && (
