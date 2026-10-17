@@ -102,7 +102,7 @@ Route: D = delegated writer (2+ non-trivial files); I = inline.
   - Advisory follow-ups:
     - F8: supervisord as PID 1 keeps the container alive if php-fpm or nginx goes FATAL, so `restart: unless-stopped` never fires; add an event listener that stops supervisord on FATAL.
     - F9: in dev mode the bind mount hides the image's storage dirs, and the entrypoint chowns host files.
-    - F10: the 10M upload limit is set in both php.ini and nginx; keep them in sync.
+    - F10: the import accepts files up to 10 MB (Laravel `max:10240`); the infrastructure limits sit above it to leave room for multipart overhead (nginx `client_max_body_size 12M`, php `post_max_size 12M`, `upload_max_filesize 11M`). Keep the three in step.
     - F13 (user asked to revisit after the core): measure a large synchronous import, then evaluate async import (queue job + `imports` table + status endpoint) with push notification via Laravel Reverb (1.12 supports Laravel 13) versus polling. A browser cannot receive webhooks; SSE is a poor fit for PHP-FPM.
     - F11: add a repeatable smoke script (or CI step) for the packaging checks.
   - Codex review on PR #1 (2026-10-16) raised F8 and F9 again as P2. Both were fixed on `feat/01-bootstrap` with the user's approval:

@@ -65,3 +65,13 @@ it('detects a row whose fields are all blank', function (): void {
     expect(ProductRowParser::isBlank(['name' => '', 'sku' => ' ']))->toBeTrue()
         ->and(ProductRowParser::isBlank(['name' => '', 'sku' => 'X']))->toBeFalse();
 });
+
+it('gives invalid rows that differ only in casing and spacing of name or category the same signature', function (): void {
+    $parser = new ProductRowParser;
+    $first = $parser->parse(csvRow(['price' => 'free']));
+    $second = $parser->parse(csvRow(['price' => 'free', 'name' => ' running   SHOES ', 'category' => 'FOOTWEAR', 'sku' => 'RS-001']));
+    $different = $parser->parse(csvRow(['price' => 'free', 'stock' => '9']));
+
+    expect($second->signature)->toBe($first->signature)
+        ->and($different->signature)->not->toBe($first->signature);
+});

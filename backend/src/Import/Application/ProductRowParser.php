@@ -83,9 +83,17 @@ final class ProductRowParser
     /** @param  array<string, string>  $fields */
     private static function rawSignature(string $sku, array $fields): string
     {
+        $fields = array_map('trim', $fields);
         $fields['sku'] = $sku;
+        $fields['name'] = self::textKey($fields['name']);
+        $fields['category'] = self::textKey($fields['category']);
         ksort($fields);
 
-        return 'invalid:'.serialize(array_map('trim', $fields));
+        return 'invalid:'.serialize($fields);
+    }
+
+    private static function textKey(string $value): string
+    {
+        return mb_strtolower((string) preg_replace('/\s+/u', ' ', mb_scrub($value, 'UTF-8')));
     }
 }
