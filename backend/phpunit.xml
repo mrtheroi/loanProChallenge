@@ -19,6 +19,7 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <!-- The single SPA origin; Sanctum and the first-party login guard derive the stateful origin from it. -->
         <env name="APP_URL" value="http://localhost:8000"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
