@@ -64,3 +64,11 @@ it('keeps physically empty lines so they can be counted as blank rows', function
         3 => ['Shoes', 'RS-001'],
     ]);
 });
+
+it('reads backslashes literally as RFC 4180 specifies', function (): void {
+    expect(readCsv("name,description\n\"Path\",\"C:\\Temp\\\"\n\"Quote\",\"say \\\"\"hi\"\"\"\n"))->toBe([
+        1 => ['name', 'description'],
+        2 => ['Path', 'C:\\Temp\\'],
+        3 => ['Quote', 'say \\"hi"'],
+    ]);
+});

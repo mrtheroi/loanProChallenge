@@ -12,6 +12,7 @@ final class LeagueCsvRowReader implements CsvRowReader
     public function read(string $path): iterable
     {
         $reader = Reader::from($path);
+        $reader->setEscape('');
         $reader->includeEmptyRecords();
 
         foreach ($reader->getRecords() as $offset => $record) {
