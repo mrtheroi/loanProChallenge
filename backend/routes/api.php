@@ -6,6 +6,7 @@ use Ecommerce\Identity\Http\Controllers\LoginController;
 use Ecommerce\Identity\Http\Controllers\LogoutController;
 use Ecommerce\Identity\Http\Controllers\MeController;
 use Ecommerce\Identity\Http\Controllers\RegisterController;
+use Ecommerce\Import\Infrastructure\Http\ImportProductsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
@@ -24,6 +25,7 @@ Route::prefix('auth')->group(function (): void {
 
 Route::prefix('admin/products')->middleware(['auth:sanctum', 'can:manage-catalog'])->group(function (): void {
     Route::post('/', [AdminProductController::class, 'store']);
+    Route::post('/import', ImportProductsController::class);
     Route::get('/{sku}', [AdminProductController::class, 'show']);
     Route::put('/{sku}', [AdminProductController::class, 'update']);
     Route::delete('/{sku}', [AdminProductController::class, 'destroy']);
