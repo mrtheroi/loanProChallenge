@@ -7,6 +7,7 @@ use Ecommerce\Identity\Http\Controllers\LogoutController;
 use Ecommerce\Identity\Http\Controllers\MeController;
 use Ecommerce\Identity\Http\Controllers\RegisterController;
 use Ecommerce\Import\Infrastructure\Http\ImportProductsController;
+use Ecommerce\Ordering\Infrastructure\Http\OrdersController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
@@ -29,4 +30,10 @@ Route::prefix('admin/products')->middleware(['auth:sanctum', 'can:manage-catalog
     Route::get('/{sku}', [AdminProductController::class, 'show']);
     Route::put('/{sku}', [AdminProductController::class, 'update']);
     Route::delete('/{sku}', [AdminProductController::class, 'destroy']);
+});
+
+Route::prefix('orders')->middleware(['auth:sanctum', 'can:purchase'])->group(function (): void {
+    Route::get('/', [OrdersController::class, 'index']);
+    Route::post('/', [OrdersController::class, 'store']);
+    Route::get('/{order}', [OrdersController::class, 'show'])->whereNumber('order');
 });

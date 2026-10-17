@@ -3,6 +3,7 @@
 use Ecommerce\Catalog\Infrastructure\Http\CatalogExceptions;
 use Ecommerce\Identity\Http\Middleware\EnsureUserHasRole;
 use Ecommerce\Import\Infrastructure\Http\ImportExceptions;
+use Ecommerce\Ordering\Infrastructure\Http\OrderingExceptions;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -25,4 +26,5 @@ return Application::configure(basePath: dirname(__DIR__))
         );
         CatalogExceptions::register($exceptions);
         ImportExceptions::register($exceptions);
+        OrderingExceptions::register($exceptions);
     })->create();
