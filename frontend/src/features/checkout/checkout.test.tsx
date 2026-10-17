@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { useCartStore } from '@/features/cart/cartStore'
 import { authHandlers, buyer } from '@/test/auth-handlers'
 import { order, orderHandlers } from '@/test/order-handlers'
@@ -242,6 +242,30 @@ describe('checkout', () => {
     await user.click(screen.getByRole('button', { name: /^Pay / }))
     expect(await screen.findByText('Enter a year between 2000 and 2100.')).toBeInTheDocument()
     expect(orders.placed).toHaveLength(0)
+  })
+
+  it('judges card expiry by the UTC month the backend uses, not the local one', async () => {
+    vi.stubEnv('TZ', 'Pacific/Kiritimati')
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-31T12:00:00Z'))
+    try {
+      fillCart()
+      const orders = orderHandlers()
+      server.use(...authHandlers(buyer).handlers, ...orders.handlers)
+      const { user } = renderRoute('/checkout')
+
+      await user.type(await screen.findByLabelText('Card number'), '4242 4242 4242 4242')
+      await user.type(screen.getByLabelText('Expiry month'), '10')
+      await user.type(screen.getByLabelText('Expiry year'), '2026')
+      await user.type(screen.getByLabelText('CVC'), '123')
+      await user.click(screen.getByRole('button', { name: /^Pay / }))
+
+      expect(await screen.findByText('Thank you! Your order is confirmed.')).toBeInTheDocument()
+      expect(orders.placed).toHaveLength(1)
+    } finally {
+      vi.useRealTimers()
+      vi.unstubAllEnvs()
+    }
   })
 
   it('keeps the key when a retry is throttled before reaching the payment', async () => {

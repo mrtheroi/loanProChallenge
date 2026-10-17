@@ -12,8 +12,9 @@ const schema = z.object({
   cvc: z.string().regex(/^\d{3,4}$/, 'Enter 3 or 4 digits.'),
 }).refine(
   (card) => {
+    // The backend checks expiry against the current UTC month.
     const today = new Date()
-    return card.exp_year * 12 + card.exp_month >= today.getFullYear() * 12 + today.getMonth() + 1
+    return card.exp_year * 12 + card.exp_month >= today.getUTCFullYear() * 12 + today.getUTCMonth() + 1
   },
   { path: ['exp_year'], message: 'This card has expired.' },
 )

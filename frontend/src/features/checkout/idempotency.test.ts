@@ -54,6 +54,19 @@ describe('idempotency keys', () => {
     expect(await idempotencyKeyFor(7, 'payment')).toBe(next)
   })
 
+  it('keeps a shared key in every tab until that tab sees the outcome', async () => {
+    const key = await idempotencyKeyFor(7, 'shared payment')
+    vi.resetModules()
+    const otherTab = await import('./idempotency')
+    expect(await otherTab.idempotencyKeyFor(7, 'shared payment')).toBe(key)
+
+    await settlePayment(7, 'shared payment')
+    const next = await idempotencyKeyFor(7, 'shared payment')
+
+    expect(next).not.toBe(key)
+    expect(await otherTab.idempotencyKeyFor(7, 'shared payment')).toBe(key)
+  })
+
   it('never stores card details', async () => {
     await idempotencyKeyFor(7, 'MUG-1|4242|12/2030')
 

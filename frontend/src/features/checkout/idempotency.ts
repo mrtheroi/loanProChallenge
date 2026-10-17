@@ -38,11 +38,20 @@ async function slotFor(userId: number, fingerprint: string): Promise<string> {
   return `${userId}:${hex(await sha256(fingerprint))}`
 }
 
+/**
+ * This tab's own attempt wins over the shared one: another tab settling the
+ * same payment must not take the key away from a tab still awaiting its outcome.
+ */
 function readAttempt(slot: string): string | undefined {
+  const own = memoryAttempts.get(slot)
+  if (own !== undefined) return own
+
   try {
-    return localStorage.getItem(ATTEMPT_PREFIX + slot) ?? memoryAttempts.get(slot)
+    const shared = localStorage.getItem(ATTEMPT_PREFIX + slot) ?? undefined
+    if (shared !== undefined) memoryAttempts.set(slot, shared)
+    return shared
   } catch {
-    return memoryAttempts.get(slot)
+    return undefined
   }
 }
 
