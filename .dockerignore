@@ -9,3 +9,4 @@ docs
 .atl
 backend/storage/logs/*
 **/.phpunit.cache
+frontend/dist

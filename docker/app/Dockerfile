@@ -1,5 +1,13 @@
 FROM composer:2 AS composer
 
+FROM node:26-alpine AS spa
+
+WORKDIR /spa
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY frontend/ ./
+RUN npm run build
+
 FROM php:8.4-fpm-alpine
 
 RUN apk add --no-cache libpq icu-libs unzip nginx supervisor \
@@ -12,7 +20,7 @@ COPY --from=composer /usr/bin/composer /usr/bin/composer
 COPY docker/app/php.ini /usr/local/etc/php/conf.d/app.ini
 COPY docker/app/nginx.conf /etc/nginx/http.d/default.conf
 COPY docker/app/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY docker/app/html /var/www/spa
+COPY --from=spa /spa/dist /var/www/spa
 
 WORKDIR /var/www/html
 
