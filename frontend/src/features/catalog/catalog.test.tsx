@@ -20,6 +20,14 @@ describe('catalog', () => {
     expect(within(tent).getByRole('button', { name: 'Add to cart' })).toBeDisabled()
   })
 
+  it('shows each product SKU on its card', async () => {
+    server.use(...authHandlers(null).handlers, ...catalogHandlers([product(), product({ sku: 'TENT-1', name: 'Tent' })]).handlers)
+    renderRoute('/')
+
+    expect(within(await screen.findByRole('article', { name: 'Mug' })).getByText('SKU: MUG-1')).toBeInTheDocument()
+    expect(within(screen.getByRole('article', { name: 'Tent' })).getByText('SKU: TENT-1')).toBeInTheDocument()
+  })
+
   it('keeps the search and filters in the URL and sends them to the API', async () => {
     const catalog = catalogHandlers([product(), product({ sku: 'CUP-1', name: 'Cup' })])
     server.use(...authHandlers(null).handlers, ...catalog.handlers)

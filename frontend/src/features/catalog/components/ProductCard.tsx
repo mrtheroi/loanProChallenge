@@ -16,6 +16,7 @@ export function ProductCard({ product }: { product: Product }) {
         </h2>
         {product.stock < 1 && <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">Out of stock</span>}
       </div>
+      <p className="font-mono text-xs text-muted-foreground">SKU: {product.sku}</p>
       <p className="text-sm text-muted-foreground">{product.category}</p>
       <p className="mt-auto text-lg font-semibold">{formatCents(toCents(product.price))}</p>
       <AddToCartButton product={product} />
