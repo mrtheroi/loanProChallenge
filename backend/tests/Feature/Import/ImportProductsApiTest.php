@@ -292,3 +292,14 @@ it('reports rows that lose a race with another writer and keeps importing the re
             ['row' => 4, 'sku' => 'TM-029', 'status' => 'created', 'errors' => [], 'note' => null],
         ]);
 });
+
+it('reports an identical repeat as failed when the first of those rows failed', function (): void {
+    seedExistingShoes();
+
+    importCsv(IMPORT_HEADER."Trail Shoes,RS-001,Light,Footwear,89.99,150,0.35\nTrail Shoes,RS-001,Light,Footwear,89.99,150,0.35\n")
+        ->assertOk()
+        ->assertJsonPath('summary', ['created' => 0, 'updated' => 0, 'unchanged' => 0, 'failed' => 2, 'blank_rows' => 0])
+        ->assertJsonPath('rows.1', ['row' => 3, 'sku' => 'RS-001', 'status' => 'failed', 'errors' => [
+            'name' => ['does not match the existing product "Running Shoes"; the import cannot rename products'],
+        ], 'note' => 'identical to row 2']);
+});

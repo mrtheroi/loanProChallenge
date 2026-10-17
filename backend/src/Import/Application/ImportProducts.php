@@ -77,10 +77,9 @@ final readonly class ImportProducts
             } elseif ($parsed->product === null) {
                 $results[$row] = RowResult::failed($row, $parsed->sku, $parsed->errors);
             } elseif (isset($applied[$parsed->sku])) {
-                $results[$row] = new RowResult($row, $parsed->sku, RowStatus::Unchanged, note: sprintf('identical to row %d', $applied[$parsed->sku]));
+                $results[$row] = $applied[$parsed->sku]->repeatedAt($row);
             } else {
-                $applied[$parsed->sku] = $row;
-                $results[$row] = $this->apply($row, $parsed->product, $newCategories);
+                $results[$row] = $applied[$parsed->sku] = $this->apply($row, $parsed->product, $newCategories);
             }
         }
 

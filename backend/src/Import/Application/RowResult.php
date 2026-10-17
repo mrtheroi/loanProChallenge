@@ -20,4 +20,13 @@ final readonly class RowResult
     {
         return new self($row, $sku, RowStatus::Failed, $errors);
     }
+
+    public function repeatedAt(int $row): self
+    {
+        $note = sprintf('identical to row %d', $this->row);
+
+        return $this->status === RowStatus::Failed
+            ? new self($row, $this->sku, RowStatus::Failed, $this->errors, $note)
+            : new self($row, $this->sku, RowStatus::Unchanged, note: $note);
+    }
 }
