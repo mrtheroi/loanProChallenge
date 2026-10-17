@@ -1,6 +1,7 @@
 <?php
 
 use Ecommerce\Catalog\Infrastructure\Http\AdminProductController;
+use Ecommerce\Catalog\Infrastructure\Http\ProductSearchController;
 use Ecommerce\Identity\Http\Controllers\LoginController;
 use Ecommerce\Identity\Http\Controllers\LogoutController;
 use Ecommerce\Identity\Http\Controllers\MeController;
@@ -8,6 +9,8 @@ use Ecommerce\Identity\Http\Controllers\RegisterController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
+
+Route::get('/products', ProductSearchController::class);
 
 Route::prefix('auth')->group(function (): void {
     Route::post('/register', RegisterController::class)->middleware('throttle:register');

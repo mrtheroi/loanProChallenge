@@ -4,17 +4,12 @@ declare(strict_types=1);
 
 namespace Ecommerce\Catalog\Infrastructure;
 
-use Ecommerce\Catalog\Domain\CategoryName;
-use Ecommerce\Catalog\Domain\Money;
 use Ecommerce\Catalog\Domain\Product;
 use Ecommerce\Catalog\Domain\ProductAlreadyExists;
-use Ecommerce\Catalog\Domain\ProductName;
 use Ecommerce\Catalog\Domain\ProductNotFound;
 use Ecommerce\Catalog\Domain\ProductRepository;
 use Ecommerce\Catalog\Domain\Sku;
 use Ecommerce\Catalog\Domain\SkuIsReserved;
-use Ecommerce\Catalog\Domain\Stock;
-use Ecommerce\Catalog\Domain\Weight;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -26,7 +21,7 @@ final class EloquentProductRepository implements ProductRepository
             return DB::transaction(function () use ($product): Product {
                 $model = ProductModel::query()->create(['sku' => $product->sku()->value(), ...$this->attributes($product)]);
 
-                return $this->toDomain($model);
+                return $model->toProduct();
             });
         } catch (UniqueConstraintViolationException $exception) {
             if ($exception->index === 'products_sku_unique') {
@@ -67,7 +62,7 @@ final class EloquentProductRepository implements ProductRepository
                 throw ProductNotFound::bySku($product->sku()->value());
             }
 
-            return $this->toDomain(ProductModel::query()->with('category')->where('sku', $product->sku()->value())->firstOrFail());
+            return ProductModel::query()->with('category')->where('sku', $product->sku()->value())->firstOrFail()->toProduct();
         });
     }
 
@@ -79,7 +74,7 @@ final class EloquentProductRepository implements ProductRepository
             return null;
         }
 
-        return $this->toDomain($model);
+        return $model->toProduct();
     }
 
     public function delete(Sku $sku): void
@@ -105,18 +100,5 @@ final class EloquentProductRepository implements ProductRepository
             'stock' => $product->stock()->quantity(),
             'weight_grams' => $product->weight()?->grams(),
         ];
-    }
-
-    private function toDomain(ProductModel $model): Product
-    {
-        return Product::create(
-            Sku::fromString($model->sku),
-            ProductName::fromString($model->name),
-            $model->description,
-            CategoryName::fromString($model->category->name),
-            Money::fromCents($model->price_cents),
-            Stock::from($model->stock),
-            $model->weight_grams === null ? null : Weight::fromGrams($model->weight_grams),
-        );
     }
 }
