@@ -145,4 +145,20 @@ describe('cart', () => {
     release()
     expect(await screen.findByText(/Admin accounts cannot place orders/)).toBeInTheDocument()
   })
+  it('offers a retry instead of checkout when the session cannot be checked', async () => {
+    useCartStore.getState().add({ sku: 'MUG-1', name: 'Mug', price: '16.99', stock: 5 })
+    let fail = true
+    server.use(
+      http.get('/api/auth/me', () => (fail ? HttpResponse.json({ message: 'Server Error' }, { status: 503 }) : HttpResponse.json({ data: buyer }))),
+      ...authHandlers(buyer).handlers,
+    )
+    const { user } = renderRoute('/cart')
+
+    expect(await screen.findByText('We could not check your session.')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Checkout' })).not.toBeInTheDocument()
+    fail = false
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByRole('link', { name: 'Checkout' })).toBeInTheDocument()
+  })
 })

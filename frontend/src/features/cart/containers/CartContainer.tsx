@@ -11,7 +11,8 @@ export function CartContainer() {
   const items = useCartStore((state) => state.items)
   const setQuantity = useCartStore((state) => state.setQuantity)
   const remove = useCartStore((state) => state.remove)
-  const { data: user, isPending: checkingSession } = useCurrentUser()
+  const { data: user, isPending: checkingSession, isError, refetch } = useCurrentUser()
+  const sessionUnknown = isError && user === undefined
   const lines = Object.values(items)
 
   if (lines.length === 0) {
@@ -56,7 +57,15 @@ export function CartContainer() {
         <p className="text-lg font-semibold">Subtotal: {formatCents(subtotal)}</p>
         <p className="text-sm text-muted-foreground">Prices and stock are confirmed when you check out.</p>
         {user?.role === 'admin' && <p className="text-sm font-medium">Admin accounts cannot place orders. Sign in with a buyer account to check out.</p>}
-        {!checkingSession && user?.role !== 'admin' && (
+        {sessionUnknown && (
+          <div className="flex items-center gap-3">
+            <p className="text-sm">We could not check your session.</p>
+            <Button variant="outline" onClick={() => void refetch()}>
+              Try again
+            </Button>
+          </div>
+        )}
+        {!checkingSession && !sessionUnknown && user?.role !== 'admin' && (
           <Button asChild>
             <Link to="/checkout">Checkout</Link>
           </Button>
