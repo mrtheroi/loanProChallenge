@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Ecommerce\Catalog\Domain\Product;
 use Ecommerce\Catalog\Domain\ProductAlreadyExists;
+use Ecommerce\Catalog\Domain\ProductName;
 use Ecommerce\Catalog\Domain\ProductRepository;
 use Ecommerce\Catalog\Domain\Sku;
 use Ecommerce\Catalog\Infrastructure\ProductModel;
@@ -267,9 +268,9 @@ it('reports rows that lose a race with another writer and keeps importing the re
             return $this->real->add($product);
         }
 
-        public function update(Product $product): Product
+        public function update(Product $product, ?ProductName $expectedName = null): Product
         {
-            return $this->real->update($product);
+            return $this->real->update($product, $expectedName);
         }
 
         public function save(Product $product): void
@@ -333,4 +334,61 @@ it('stores sql and script payloads as plain text without executing them', functi
         ->and($stored->name)->toBe($sql)
         ->and($stored->description)->toBe($delete)
         ->and($stored->category->name)->toBe($script);
+});
+
+it('does not undo a rename made by another request after the name check', function (): void {
+    seedExistingShoes();
+    $real = app(ProductRepository::class);
+    app()->instance(ProductRepository::class, new class($real) implements ProductRepository
+    {
+        public function __construct(private ProductRepository $real) {}
+
+        public function findBySku(Sku $sku): ?Product
+        {
+            $found = $this->real->findBySku($sku);
+            ProductModel::query()->where('sku', $sku->value())->update(['name' => 'Renamed Shoes']);
+
+            return $found;
+        }
+
+        public function add(Product $product): Product
+        {
+            return $this->real->add($product);
+        }
+
+        public function update(Product $product, ?ProductName $expectedName = null): Product
+        {
+            return $this->real->update($product, $expectedName);
+        }
+
+        public function save(Product $product): void
+        {
+            $this->real->save($product);
+        }
+
+        public function delete(Sku $sku): void
+        {
+            $this->real->delete($sku);
+        }
+    });
+
+    importCsv(IMPORT_HEADER."Running Shoes,RS-001,Changed,Footwear,1.00,1,\n")
+        ->assertOk()
+        ->assertJsonPath('rows.0', ['row' => 2, 'sku' => 'RS-001', 'status' => 'failed', 'errors' => [
+            'sku' => ['was changed by another request during the import'],
+        ], 'note' => null]);
+
+    expect(ProductModel::query()->where('sku', 'RS-001')->sole()->only(['name', 'description']))
+        ->toBe(['name' => 'Renamed Shoes', 'description' => 'Light']);
+});
+
+it('accepts exactly 5000 data rows and does not count blank rows toward the cap', function (): void {
+    $rows = '';
+    foreach (range(1, 5000) as $index) {
+        $rows .= "Item {$index},IT-{$index},,Bulk,1.00,1,\n";
+    }
+
+    importCsv(IMPORT_HEADER.",,,,,,\n".$rows."\n")
+        ->assertOk()
+        ->assertJsonPath('summary', ['created' => 5000, 'updated' => 0, 'unchanged' => 0, 'failed' => 0, 'blank_rows' => 2]);
 });

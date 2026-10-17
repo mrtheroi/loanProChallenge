@@ -7,6 +7,7 @@ namespace Ecommerce\Import\Application;
 use Ecommerce\Catalog\Domain\CategoryRepository;
 use Ecommerce\Catalog\Domain\Product;
 use Ecommerce\Catalog\Domain\ProductAlreadyExists;
+use Ecommerce\Catalog\Domain\ProductChangedConcurrently;
 use Ecommerce\Catalog\Domain\ProductNotFound;
 use Ecommerce\Catalog\Domain\ProductRepository;
 use Ecommerce\Catalog\Domain\SkuIsReserved;
@@ -37,14 +38,14 @@ final readonly class ImportProducts
                 continue;
             }
 
-            if (++$dataRows > self::MAX_ROWS) {
-                throw CsvTooLarge::rows(self::MAX_ROWS);
-            }
-
             if (ProductRowParser::isBlank($record)) {
                 $blankRows++;
 
                 continue;
+            }
+
+            if (++$dataRows > self::MAX_ROWS) {
+                throw CsvTooLarge::rows(self::MAX_ROWS);
             }
 
             $fieldCountError = $header->fieldCountError($record);
@@ -140,11 +141,13 @@ final readonly class ImportProducts
         try {
             $saved = $existing === null
                 ? $this->products->add($product)
-                : $this->products->update(self::keepingName($existing, $product));
+                : $this->products->update(self::keepingName($existing, $product), $existing->name());
         } catch (SkuIsReserved) {
             return RowResult::failed($row, $sku, ['sku' => ['belongs to a deleted product and cannot be reused']]);
         } catch (ProductAlreadyExists) {
             return RowResult::failed($row, $sku, ['sku' => ['was created by another request during the import']]);
+        } catch (ProductChangedConcurrently) {
+            return RowResult::failed($row, $sku, ['sku' => ['was changed by another request during the import']]);
         } catch (ProductNotFound) {
             return RowResult::failed($row, $sku, ['sku' => ['was deleted by another request during the import']]);
         }

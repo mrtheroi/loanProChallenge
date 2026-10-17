@@ -6,6 +6,8 @@ namespace Ecommerce\Catalog\Infrastructure;
 
 use Ecommerce\Catalog\Domain\Product;
 use Ecommerce\Catalog\Domain\ProductAlreadyExists;
+use Ecommerce\Catalog\Domain\ProductChangedConcurrently;
+use Ecommerce\Catalog\Domain\ProductName;
 use Ecommerce\Catalog\Domain\ProductNotFound;
 use Ecommerce\Catalog\Domain\ProductRepository;
 use Ecommerce\Catalog\Domain\Sku;
@@ -53,13 +55,18 @@ final class EloquentProductRepository implements ProductRepository
         }
     }
 
-    public function update(Product $product): Product
+    public function update(Product $product, ?ProductName $expectedName = null): Product
     {
-        return DB::transaction(function () use ($product): Product {
-            $affected = ProductModel::query()->where('sku', $product->sku()->value())->update($this->attributes($product));
+        return DB::transaction(function () use ($product, $expectedName): Product {
+            $affected = ProductModel::query()
+                ->where('sku', $product->sku()->value())
+                ->when($expectedName !== null, fn ($query) => $query->where('name', $expectedName?->value()))
+                ->update($this->attributes($product));
 
             if ($affected === 0) {
-                throw ProductNotFound::bySku($product->sku()->value());
+                throw $expectedName !== null && ProductModel::query()->where('sku', $product->sku()->value())->exists()
+                    ? ProductChangedConcurrently::bySku($product->sku())
+                    : ProductNotFound::bySku($product->sku()->value());
             }
 
             return ProductModel::query()->with('category')->where('sku', $product->sku()->value())->firstOrFail()->toProduct();
