@@ -41,7 +41,6 @@ return [
                 env('MEMCACHED_PASSWORD'),
             ],
             'options' => [
-
             ],
             'servers' => [
                 [
@@ -78,11 +77,9 @@ return [
                 'array',
             ],
         ],
-
     ],
 
     'prefix' => env('CACHE_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-cache-'),
 
     'serializable_classes' => false,
-
 ];

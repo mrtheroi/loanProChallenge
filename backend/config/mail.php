@@ -24,7 +24,6 @@ return [
 
         'postmark' => [
             'transport' => 'postmark',
-
         ],
 
         'resend' => [
@@ -62,12 +61,10 @@ return [
             ],
             'retry_after' => 60,
         ],
-
     ],
 
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
-
 ];
