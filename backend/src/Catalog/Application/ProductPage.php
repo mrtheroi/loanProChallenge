@@ -8,7 +8,7 @@ use Ecommerce\Catalog\Domain\Product;
 
 final readonly class ProductPage
 {
-    /** @param  list<Product>  $products */
+    /** @param list<Product> $products */
     public function __construct(
         public array $products,
         public int $total,

@@ -122,7 +122,7 @@ final readonly class ImportProducts
         return $errors;
     }
 
-    /** @param  array<string, string>  $newCategories */
+    /** @param array<string, string> $newCategories */
     private function apply(int $row, Product $product, array &$newCategories): RowResult
     {
         $sku = $product->sku()->value();

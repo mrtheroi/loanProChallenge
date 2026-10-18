@@ -6,7 +6,6 @@ import { importHandlers, type ImportReport } from '@/test/import-handlers'
 import { renderRoute } from '@/test/render'
 import { server } from '@/test/server'
 
-// Node's fetch cannot send jsdom's File or FormData, so uploads use Node's own classes, as a browser sends its native ones.
 let NodeFile: typeof File
 let NodeFormData: typeof FormData
 const csv = (content: string) => new NodeFile([content], 'products.csv', { type: 'text/csv' })

@@ -19,13 +19,13 @@ final class ProductRowParser
 {
     private const int MAX_REPORTED_SKU_LENGTH = 100;
 
-    /** @param  array<array-key, string>  $fields */
+    /** @param array<array-key, string> $fields */
     public static function isBlank(array $fields): bool
     {
         return array_filter($fields, fn (string $value): bool => trim($value) !== '') === [];
     }
 
-    /** @param  array<string, string>  $fields */
+    /** @param array<string, string> $fields */
     public function parse(array $fields): ParsedRow
     {
         $errors = [];
@@ -80,7 +80,7 @@ final class ProductRowParser
         ]);
     }
 
-    /** @param  array<string, string>  $fields */
+    /** @param array<string, string> $fields */
     private static function rawSignature(string $sku, array $fields): string
     {
         $fields = array_map('trim', $fields);

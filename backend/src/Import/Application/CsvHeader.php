@@ -8,10 +8,10 @@ final readonly class CsvHeader
 {
     public const array COLUMNS = ['name', 'sku', 'description', 'category', 'price', 'stock', 'weight_kg'];
 
-    /** @param  list<string>  $columns */
+    /** @param list<string> $columns */
     private function __construct(private array $columns) {}
 
-    /** @param  list<string>  $record */
+    /** @param list<string> $record */
     public static function fromRecord(array $record): self
     {
         $columns = array_map(fn (string $column): string => strtolower(trim($column)), $record);
@@ -38,7 +38,7 @@ final readonly class CsvHeader
         return new self($columns);
     }
 
-    /** @param  list<string>  $record */
+    /** @param list<string> $record */
     public function fieldCountError(array $record): ?string
     {
         return count($record) === count($this->columns)

@@ -8,7 +8,7 @@ use Ecommerce\Catalog\Domain\Product;
 
 final readonly class ParsedRow
 {
-    /** @param  array<string, list<string>>  $errors */
+    /** @param array<string, list<string>> $errors */
     public function __construct(
         public string $sku,
         public ?Product $product,

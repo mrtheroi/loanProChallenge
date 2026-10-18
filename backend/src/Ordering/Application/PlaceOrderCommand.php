@@ -11,8 +11,8 @@ use InvalidArgumentException;
 final readonly class PlaceOrderCommand
 {
     /**
-     * @param  array<string, int>  $quantitiesBySku  canonical SKU => quantity
-     * @param  array<string, int>  $expectedPriceCentsBySku  canonical SKU => unit price the buyer saw
+     * @param  array<string, int>  $quantitiesBySku
+     * @param  array<string, int>  $expectedPriceCentsBySku
      */
     public function __construct(
         public int $userId,
@@ -29,10 +29,6 @@ final readonly class PlaceOrderCommand
         }
     }
 
-    /**
-     * Identifies the request without any card secret: only brand, last four
-     * and expiry are compared, so nothing derived from the number or CVC is stored.
-     */
     public function requestHash(): string
     {
         $lines = [];

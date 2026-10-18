@@ -23,7 +23,6 @@ export type Unavailable = { sku: string; requested: number; available: number }
 
 export type PriceChange = { sku: string; expected: string; current: string }
 
-/** Private keys carry the buyer's id, so a cache filled for one buyer is never read for another. */
 export function ordersQueryKey(userId: number | undefined, page: number) {
   return ['orders', userId, page] as const
 }

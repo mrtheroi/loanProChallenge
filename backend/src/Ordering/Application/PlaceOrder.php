@@ -109,7 +109,7 @@ final readonly class PlaceOrder
         return new PlacedOrder($order, true);
     }
 
-    /** @param  list<OrderLine>  $lines */
+    /** @param list<OrderLine> $lines */
     private static function total(array $lines): int
     {
         $total = 0;

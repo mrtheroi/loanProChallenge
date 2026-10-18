@@ -9,7 +9,7 @@ use Tests\Feature\Catalog\AdminCatalog;
 
 uses(RefreshDatabase::class);
 
-/** @param  array<int, array<string, mixed>>  $overrides */
+/** @param array<int, array<string, mixed>> $overrides */
 function seedProducts(array $overrides): void
 {
     $admin = AdminCatalog::admin();

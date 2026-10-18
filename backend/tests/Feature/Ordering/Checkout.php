@@ -56,7 +56,6 @@ final class Checkout
 
         $cents = ProductModel::query()->where('sku', strtoupper(trim($item['sku'])))->value('price_cents');
 
-        // An unknown SKU gets any well-formed price: the request must reach the stock check, which rejects it.
         return $item + ['unit_price' => Money::fromCents($cents === null ? 0 : (int) $cents)->toDecimalString()];
     }
 }
